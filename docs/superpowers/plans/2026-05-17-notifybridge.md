@@ -682,8 +682,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+// sdk=33: extractMessagingStyleFromNotification is API 28+; the mapper guards
+// SDK_INT < P and returns null, so MessagingStyle must be exercised at >= 28.
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class NotificationMapperImplTest {
     private val mapper = NotificationMapperImpl()
 
@@ -750,6 +754,7 @@ interface NotificationMapper {
 package com.nyasa.notifybridge.data.notif
 
 import android.app.Notification
+import android.os.Build
 import android.service.notification.StatusBarNotification
 import com.nyasa.notifybridge.domain.model.CapturedNotification
 import com.nyasa.notifybridge.domain.notif.NotificationMapper
@@ -779,6 +784,10 @@ class NotificationMapperImpl @Inject constructor() : NotificationMapper {
     }
 
     private fun messagingLatest(notification: Notification): String? {
+        // extractMessagingStyleFromNotification is API 28+. minSdk is 26, so
+        // calling it on API 26–27 throws NoSuchMethodError at runtime. Guard
+        // it; on 26–27 the body falls through to BIG_TEXT/TEXT.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
         val style = Notification.MessagingStyle
             .extractMessagingStyleFromNotification(notification) ?: return null
         val msg = style.messages.lastOrNull() ?: return null
@@ -796,34 +805,36 @@ Expected: PASS.
 
 - [ ] **Step 5: Add MessagingStyle test, run, confirm pass**
 
-Append to the test class:
+Append to the test class. Note the constraint: `extractMessagingStyleFromNotification`
+returns `null` below API 28, and the mapper guards `SDK_INT < P`; the class-level
+`@Config(sdk = [33])` is what makes this test meaningful. Use a real small-icon
+resource — `setSmallIcon(0)` throws when the notification is built (no such
+drawable) on Robolectric and on device.
 ```kotlin
     @Test fun messaging_style_takes_latest_with_sender_prefix() {
+        val ctx = org.robolectric.RuntimeEnvironment.getApplication()
         val person = android.app.Person.Builder().setName("Alice").build()
         val style = Notification.MessagingStyle(person)
             .addMessage("first", 1L, person)
             .addMessage("latest", 2L, person)
-        val notif = Notification().apply { extras = Bundle() }
-        style.setBuilder(Notification.Builder(
-            org.robolectric.RuntimeEnvironment.getApplication()))
-        val b = Bundle()
-        Notification.MessagingStyle::class.java // ensure import retained
-        val sbn = io.mockk.mockk<StatusBarNotification>(relaxed = true) {
-            io.mockk.every { packageName } returns "com.msg"
-            io.mockk.every { notification } returns
-                Notification.Builder(org.robolectric.RuntimeEnvironment.getApplication())
-                    .setStyle(style).setSmallIcon(0).build()
-            io.mockk.every { postTime } returns 1L
-            io.mockk.every { tag } returns null
-            io.mockk.every { id } returns 1
-            io.mockk.every { isOngoing } returns false
-            io.mockk.every { isClearable } returns true
+        val built = Notification.Builder(ctx, "ch")
+            .setStyle(style)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .build()
+        val sbn = mockk<StatusBarNotification>(relaxed = true) {
+            every { packageName } returns "com.msg"
+            every { notification } returns built
+            every { postTime } returns 1L
+            every { tag } returns null
+            every { id } returns 1
+            every { isOngoing } returns false
+            every { isClearable } returns true
         }
         assertEquals("Alice: latest", mapper.map(sbn, "Msg").body)
     }
 ```
 Run: `./gradlew :app:testDebugUnitTest --tests "*NotificationMapperImplTest*"`
-Expected: PASS (all). If Robolectric MessagingStyle extraction returns null on the configured SDK, set `@Config(sdk = [33])` on the class and rerun.
+Expected: PASS (all). The class `@Config(sdk = [33])` is required — without it Robolectric runs a default SDK that may be < 28, the mapper's guard returns null, and `messaging_style_takes_latest_with_sender_prefix` fails. That is correct guard behaviour, not a flake.
 
 - [ ] **Step 6: Commit**
 
@@ -1005,10 +1016,28 @@ class OutboxRepositoryImplTest {
         assertEquals(emptyList<OutboxItem>(), repo.nextBatch(10))
     }
 
-    @Test fun prune_ttl_then_cap() = runTest {
+    @Test fun ttl_only_deletes_expired_without_cap_interference() = runTest {
+        // Isolate the TTL path: large maxRows so the cap never fires.
+        // createdAt = epoch-ms-like values; cutoff = nowMs - ttlMs.
+        repo.enqueue(OutboxItem(topic="t", payload="old", createdAt = 1_000L))
+        repo.enqueue(OutboxItem(topic="t", payload="fresh", createdAt = 9_000L))
+        repo.pruneExpired(nowMs = 10_000L, ttlMs = 5_000L, maxRows = 1_000)
+        // cutoff = 5_000 -> deletes createdAt < 5_000 ("old"), keeps "fresh"
+        assertEquals(listOf("fresh"), repo.nextBatch(10).map { it.payload })
+    }
+
+    @Test fun cap_only_trims_to_newest_without_ttl_interference() = runTest {
+        // Isolate the cap path: ttl window so wide nothing expires.
+        repeat(10) { repo.enqueue(OutboxItem(topic="t", payload="$it", createdAt=it.toLong())) }
+        repo.pruneExpired(nowMs = 100L, ttlMs = 100L, maxRows = 3) // cutoff = 0, none expire
+        assertEquals(listOf("7","8","9"), repo.nextBatch(10).map { it.payload })
+    }
+
+    @Test fun ttl_then_cap_combined() = runTest {
         repeat(10) { repo.enqueue(OutboxItem(topic="t", payload="$it", createdAt=it.toLong())) }
         repo.pruneExpired(nowMs = 5, ttlMs = 0, maxRows = 3)
-        // ttl: createdAt < (5-0)=5 removed (0..4) -> 5..9 remain; cap 3 -> 7,8,9
+        // cutoff = 5 -> deletes createdAt < 5 (rows 0,1,2,3,4); 5..9 remain;
+        // cap 3 -> keep newest by id -> 7,8,9
         assertEquals(listOf("7","8","9"), repo.nextBatch(10).map { it.payload })
     }
 }
@@ -1412,6 +1441,19 @@ class UseCasesTest {
         assertEquals(1, ob.items.size)
     }
 
+    @Test fun drain_stops_on_first_failure_preserving_order() = runTest {
+        // Two items, first publish fails: item 2 must NOT be published ahead
+        // of item 1. Proves the stop-on-failure (ordered) behaviour is
+        // intentional and covered, not an accident of single-item batches.
+        val ob = MemOutbox()
+        ob.enqueue(OutboxItem(topic = "t", payload = "p1", createdAt = 1))
+        ob.enqueue(OutboxItem(topic = "t", payload = "p2", createdAt = 2))
+        val mqtt = FakeMqttClientManager().apply { failPublish = true }
+        DrainOutboxUseCase(ob, mqtt)()
+        assertEquals(emptyList<Triple<String,String,Boolean>>(), mqtt.published)
+        assertEquals(2, ob.items.size)
+    }
+
     @Test fun test_connection_returns_true_on_connect() = runTest {
         val r = TestConnectionUseCase(FakeMqttClientManager())(BrokerConfig(host = "h"))
         assertTrue(r)
@@ -1464,6 +1506,9 @@ class DrainOutboxUseCase @Inject constructor(
     suspend operator fun invoke(batch: Int = 50) {
         for (item in outbox.nextBatch(batch)) {
             val ok = mqtt.publish(item.topic, item.payload, qos = 1, retained = false)
+            // Stop on first failure — preserves delivery order. Skipping ahead
+            // would reorder notifications; the remaining items are retried on
+            // the next drain (foreground service / 15-min worker).
             if (ok) outbox.markPublished(item.id) else { outbox.recordFailure(item.id); break }
         }
     }
@@ -1583,7 +1628,18 @@ class HiveMqClientManager @Inject constructor(
             .serverPort(config.port)
             .automaticReconnectWithDefaultConfig()
             .addDisconnectedListener { state.value = ConnectionState.DISCONNECTED }
-        if (useTls(config)) builder.sslWithDefaultConfig()
+        if (useTls(config)) {
+            if (requiresPinnedCert(config)) {
+                // Do NOT silently fall back to system-CA — that is the exact
+                // validation downgrade §3.3/S4 forbids. Fail loud until the
+                // pinned trust manager lands in Task 25.
+                state.value = ConnectionState.ERROR
+                throw IllegalStateException(
+                    "Pinned-cert TLS not yet implemented (Task 25). " +
+                    "Use TLS OFF or SYSTEM_CA until then.")
+            }
+            builder.sslWithDefaultConfig()
+        }
         val c = builder.buildAsync()
         client = c
         try {
@@ -1635,7 +1691,7 @@ class HiveMqClientManager @Inject constructor(
 }
 ```
 
-> Note: pinned-cert trust (`requiresPinnedCert`) wiring into `sslConfig().trustManagerFactory(...)` is completed in Task 25 against a real PEM; v1 connect path supports OFF and SYSTEM_CA fully, PINNED falls back to default SSL with a logged TODO. This is tracked, not silently dropped.
+> Note: pinned-cert trust (`requiresPinnedCert`) wiring into `sslConfig().trustManagerFactory(...)` is completed in Task 25 against a real PEM. Until then PINNED **throws loudly** (above) rather than silently downgrading to system-CA — a silent downgrade would be the precise validation footgun §3.3/S4 rejects. The Broker UI (Task 21) must also disable/grey the PINNED option with a "coming soon" note until Task 25 lands, so the throw is never user-reachable in a shipped build.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1685,7 +1741,34 @@ class HiltGraphTest {
     }
 }
 ```
-Add to `app/build.gradle.kts` dependencies: `androidTestImplementation("com.google.dagger:hilt-android-testing:2.52")`, `kspAndroidTest("com.google.dagger:hilt-compiler:2.52")`, and set `testInstrumentationRunner` to a custom `HiltTestRunner` (create `app/src/androidTest/java/com/nyasa/notifybridge/HiltTestRunner.kt` extending `AndroidJUnitRunner` returning `HiltTestApplication`).
+Add the Hilt test deps + runner. In `app/build.gradle.kts` add to `dependencies`:
+```kotlin
+androidTestImplementation("com.google.dagger:hilt-android-testing:2.52")
+kspAndroidTest("com.google.dagger:hilt-compiler:2.52")
+```
+And in `android.defaultConfig`, change the runner line from:
+```kotlin
+testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+```
+to:
+```kotlin
+testInstrumentationRunner = "com.nyasa.notifybridge.HiltTestRunner"
+```
+Create `app/src/androidTest/java/com/nyasa/notifybridge/HiltTestRunner.kt`:
+```kotlin
+package com.nyasa.notifybridge
+
+import android.app.Application
+import android.content.Context
+import androidx.test.runner.AndroidJUnitRunner
+import dagger.hilt.android.testing.HiltTestApplication
+
+class HiltTestRunner : AndroidJUnitRunner() {
+    override fun newApplication(
+        cl: ClassLoader, className: String, context: Context,
+    ): Application = super.newApplication(cl, HiltTestApplication::class.java.name, context)
+}
+```
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -2101,6 +2184,10 @@ class BootReceiver : BroadcastReceiver() {
             "outbox-drain",
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<OutboxDrainWorker>(15, TimeUnit.MINUTES).build())
+        // BOOT_COMPLETED receivers are exempt from the Android 12+ (API 31+)
+        // background-start restrictions, so startForegroundService is allowed
+        // here. Do not "simplify" this away. The service calls
+        // startForeground() in onCreate within the required window.
         context.startForegroundService(
             Intent(context, MqttForegroundService::class.java))
     }
@@ -2405,7 +2492,6 @@ package com.nyasa.notifybridge
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.nyasa.notifybridge.applock.AppLockGate
 import com.nyasa.notifybridge.applock.AppLockManager
@@ -2449,11 +2535,17 @@ class MainActivity : FragmentActivity() {
         // FLAG_SECURE applied per-screen in Status/Broker (Task 20/21).
     }
 
+    private var hasStartedOnce = false
     override fun onStop() { super.onStop(); lock.onBackgrounded(System.currentTimeMillis()) }
     override fun onStart() {
         super.onStart()
-        if (lifecycle.currentState != Lifecycle.State.INITIALIZED)
-            lock.onForegrounded(System.currentTimeMillis())
+        // Skip the first onStart (cold open): there was no prior background
+        // session to time, and the initial lock state already reflects the
+        // pref. (The old `currentState != INITIALIZED` guard was dead code —
+        // by onStart the state is never INITIALIZED — and only worked by
+        // accident via AppLockManager's null backgroundedAt guard.)
+        if (hasStartedOnce) lock.onForegrounded(System.currentTimeMillis())
+        hasStartedOnce = true
     }
 }
 ```
@@ -2473,7 +2565,25 @@ git add -A && git commit -m "Add theme, nav host, lock-gated MainActivity"
 
 ## Tasks 19–24: Screens
 
-Each screen task follows the same shape. ViewModel logic is unit-tested; the composable wires state and is verified by a Compose UI test for its one critical behavior plus manual check against Stitch (project `6833643636006727286`).
+> **REQUIRED at execution time — read before writing any composable in Tasks 19–23.**
+> These tasks deliberately give the full ViewModel + tested pure logic but
+> describe the composable layout in prose rather than pixel code (writing
+> throwaway pixel markup here would bloat the plan and be rebuilt anyway —
+> see the plan header's "Compose UI note"). The composable layout source of
+> truth is the Stitch project. Before implementing each screen, fetch its
+> Stitch screen and build the composable to match it:
+> Stitch project `6833643636006727286`, screen IDs cited per task below
+> (Onboarding `8adb31430c394a8cbe7b5a10e492a71b`, Status
+> `b706f67ff307452fa027d44711ebdf3d`, Broker
+> `59dfbc89acfd4e3b8016f034cbee817b`, Permissions
+> `f0c268d81fc34bf18629428b48f6f276`, Apps
+> `661a1b472f9b4433b57f85b9842e768c`). Use the Stitch MCP `get_screen` (or
+> the screenshots in the Stitch web app) as the visual contract; the
+> ViewModel/state/events in each task are the behavioural contract and are
+> non-negotiable. If Stitch is unreachable at execution time, stop and
+> surface that — do not improvise the layout.
+
+Each screen task follows the same shape. ViewModel logic is unit-tested; the composable wires state and is verified by a Compose UI test for its one critical behavior plus a manual check against the Stitch reference above.
 
 ### Task 19: Onboarding (§3.6 — screen `8adb31430c394a8cbe7b5a10e492a71b`)
 
