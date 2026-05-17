@@ -12,4 +12,13 @@ class CapturedNotificationTest {
             isClearable = true, tag = "t", id = 7)
         assertEquals("com.whatsapp|t|7", n.dedupeKey)
     }
+
+    @Test fun dedupeKey_null_tag_uses_empty_string() {
+        val n = CapturedNotification(
+            packageName = "com.example", appLabel = "Ex",
+            title = null, body = null, subText = null, category = null,
+            channelId = null, postTime = 0L, isOngoing = false,
+            isClearable = true, tag = null, id = 99)
+        assertEquals("com.example||99", n.dedupeKey)
+    }
 }
