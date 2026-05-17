@@ -685,10 +685,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-// sdk=33: the impl retains a conservative `SDK_INT < P` parity guard (see the
-// Correction note in Step 3) that returns null below API 28, so the
-// MessagingStyle test must run at >= 28. NotificationCompat itself backports
-// extraction — the guard is the constraint here, not the extractor's API level.
+// sdk=33: extractMessagingStyleFromNotification is API 28+; the mapper guards
+// SDK_INT < P and returns null, so MessagingStyle must be exercised at >= 28.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class NotificationMapperImplTest {
@@ -790,11 +788,9 @@ class NotificationMapperImpl @Inject constructor() : NotificationMapper {
     }
 
     private fun messagingLatest(notification: Notification): String? {
-        // NotificationCompat backports MessagingStyle extraction, so this does
-        // NOT throw on API 26–27 (unlike the @hide framework extractor — see
-        // the Correction note above). The SDK_INT < P guard is retained only
-        // for parity with the committed code: below API 28 it returns null and
-        // the body falls through to BIG_TEXT/TEXT. Conservative but harmless.
+        // extractMessagingStyleFromNotification is API 28+. minSdk is 26, so
+        // calling it on API 26–27 throws NoSuchMethodError at runtime. Guard
+        // it; on 26–27 the body falls through to BIG_TEXT/TEXT.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
         val style = NotificationCompat.MessagingStyle
             .extractMessagingStyleFromNotification(notification) ?: return null
@@ -813,20 +809,19 @@ Expected: PASS.
 
 - [ ] **Step 5: Add MessagingStyle test, run, confirm pass**
 
-Append to the test class. Build the notification with **`NotificationCompat`**
-so it matches the impl's `NotificationCompat` extractor exactly (no reliance on
-framework→compat extras interop). `@Config(sdk = [33])` is still required: the
-impl retains the conservative `SDK_INT < P` parity guard, so below API 28 it
-returns null by design. Use a real small-icon resource — `setSmallIcon(0)`
-throws on build (no such drawable).
+Append to the test class. Note the constraint: `extractMessagingStyleFromNotification`
+returns `null` below API 28, and the mapper guards `SDK_INT < P`; the class-level
+`@Config(sdk = [33])` is what makes this test meaningful. Use a real small-icon
+resource — `setSmallIcon(0)` throws when the notification is built (no such
+drawable) on Robolectric and on device.
 ```kotlin
     @Test fun messaging_style_takes_latest_with_sender_prefix() {
         val ctx = org.robolectric.RuntimeEnvironment.getApplication()
-        val person = androidx.core.app.Person.Builder().setName("Alice").build()
-        val style = androidx.core.app.NotificationCompat.MessagingStyle(person)
+        val person = android.app.Person.Builder().setName("Alice").build()
+        val style = Notification.MessagingStyle(person)
             .addMessage("first", 1L, person)
             .addMessage("latest", 2L, person)
-        val built = androidx.core.app.NotificationCompat.Builder(ctx, "ch")
+        val built = Notification.Builder(ctx, "ch")
             .setStyle(style)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
@@ -843,7 +838,7 @@ throws on build (no such drawable).
     }
 ```
 Run: `./gradlew :app:testDebugUnitTest --tests "*NotificationMapperImplTest*"`
-Expected: PASS (all). `@Config(sdk = [33])` is required because the impl's retained `SDK_INT < P` parity guard returns null below API 28 — intended behaviour, not a flake. NotificationCompat itself does not require API 28; the guard does.
+Expected: PASS (all). The class `@Config(sdk = [33])` is required — without it Robolectric runs a default SDK that may be < 28, the mapper's guard returns null, and `messaging_style_takes_latest_with_sender_prefix` fails. That is correct guard behaviour, not a flake.
 
 - [ ] **Step 6: Commit**
 
