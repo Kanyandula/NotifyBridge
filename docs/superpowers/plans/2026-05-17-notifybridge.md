@@ -737,6 +737,8 @@ Expected: FAIL — classes unresolved.
 
 - [ ] **Step 3: Write minimal implementation**
 
+> **Correction (post-impl):** `android.app.Notification.MessagingStyle.extractMessagingStyleFromNotification(...)` is `@hide` in AOSP — not public SDK API, so the original verbatim code did not compile. Corrected to `androidx.core.app.NotificationCompat.MessagingStyle` (accessor `msg.person`, not `msg.senderPerson`); behavior is identical. The `SDK_INT < P` guard/comment are retained as-is for parity with the committed code (NotificationCompat backports extraction, so the guard is now conservative but harmless).
+
 `domain/notif/NotificationMapper.kt`:
 ```kotlin
 package com.nyasa.notifybridge.domain.notif
@@ -756,6 +758,7 @@ package com.nyasa.notifybridge.data.notif
 import android.app.Notification
 import android.os.Build
 import android.service.notification.StatusBarNotification
+import androidx.core.app.NotificationCompat
 import com.nyasa.notifybridge.domain.model.CapturedNotification
 import com.nyasa.notifybridge.domain.notif.NotificationMapper
 import javax.inject.Inject
@@ -788,10 +791,10 @@ class NotificationMapperImpl @Inject constructor() : NotificationMapper {
         // calling it on API 26–27 throws NoSuchMethodError at runtime. Guard
         // it; on 26–27 the body falls through to BIG_TEXT/TEXT.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
-        val style = Notification.MessagingStyle
+        val style = NotificationCompat.MessagingStyle
             .extractMessagingStyleFromNotification(notification) ?: return null
         val msg = style.messages.lastOrNull() ?: return null
-        val sender = msg.senderPerson?.name?.toString()
+        val sender = msg.person?.name?.toString()
         val text = msg.text?.toString() ?: return null
         return if (sender.isNullOrBlank()) text else "$sender: $text"
     }

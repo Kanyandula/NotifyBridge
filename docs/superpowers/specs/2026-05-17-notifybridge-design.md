@@ -92,6 +92,11 @@ full thread is recoverable from the source app. Sender name, when present in
 the latest `MessagingStyle` message, is prefixed to the body
 (`"<sender>: <text>"`).
 
+> **Impl note:** `MessagingStyle` extraction uses
+> `androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(...)`
+> — the framework `android.app.Notification.MessagingStyle` extractor is `@hide`
+> (not public SDK API). Behavior described above is unchanged.
+
 Enqueue is the **only** synchronous critical step. Parsing or publish
 failures must never crash or block the listener callback.
 
