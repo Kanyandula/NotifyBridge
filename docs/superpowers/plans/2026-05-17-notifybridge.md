@@ -602,6 +602,8 @@ Expected: FAIL — class unresolved.
 
 - [ ] **Step 3: Write minimal implementation**
 
+> **Correction (post-impl):** `DiscoveryPayloadBuilder` must have `@Inject constructor()`. It is a constructor dependency of `HiveMqClientManager` (Task 11) and the use cases (Task 10); without `@Inject` (and with no `@Provides`/`@Binds` anywhere in the plan) Hilt cannot construct it, and the first consumer that injects `MqttClientManager` (Task 13) fails the KSP build with `[Dagger/MissingBinding] DiscoveryPayloadBuilder`. Hilt's partial-graph validation is why Task 12's `HiltGraphTest` did not catch it. This matches the codebase idiom (`NotificationMapperImpl`, the use cases, `HiveMqClientManager` all use `@Inject constructor`). Behavior is unchanged; `DiscoveryPayloadBuilder()` still works for the unit test.
+
 ```kotlin
 package com.nyasa.notifybridge.domain.discovery
 
@@ -610,8 +612,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import javax.inject.Inject
 
-class DiscoveryPayloadBuilder {
+class DiscoveryPayloadBuilder @Inject constructor() {
     private fun slug(device: String) =
         device.trim().lowercase().replace(Regex("[^a-z0-9]+"), "-")
             .trim('-').ifEmpty { "phone" }
