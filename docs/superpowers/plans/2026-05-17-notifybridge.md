@@ -13,6 +13,7 @@ Source of truth: `docs/superpowers/specs/2026-05-17-notifybridge-design.md` (rev
 **Plan-wide conventions:**
 - Package root `com.nyasa.notifybridge`. Paths below are under `app/src/main/java/com/nyasa/notifybridge/` (main) and `app/src/test/...` / `app/src/androidTest/...`.
 - TDD: failing test → run (fail) → minimal impl → run (pass) → commit. Commit messages: imperative, ≤72 char subject, no AI attribution.
+- Instrumented (`connectedDebugAndroidTest`) commands use `-Pandroid.testInstrumentationRunnerArguments.class=<FQCN>` to target a single test class. (This AGP version rejects Gradle's `--tests` filter for the connected-test task; the property is the supported equivalent and was verified working.)
 - Stable interface names used across tasks (do not rename):
   - `SettingsRepository`: `brokerConfig: Flow<BrokerConfig>`, `setBrokerConfig(BrokerConfig)`, `allowList: Flow<Set<String>>`, `setAllowList(Set<String>)`, `appLock: Flow<AppLockPrefs>`, `setAppLock(AppLockPrefs)`.
   - `OutboxRepository`: `enqueue(OutboxItem)`, `nextBatch(limit: Int): List<OutboxItem>`, `markPublished(id: Long)`, `recordFailure(id: Long)`, `pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int)`, `depth(): Flow<Int>`.
@@ -907,7 +908,7 @@ class OutboxDaoTest {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*OutboxDaoTest*"` (emulator/device required)
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.data.db.OutboxDaoTest` (emulator/device required)
 Expected: FAIL — classes unresolved.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -970,7 +971,7 @@ abstract class NotifyBridgeDatabase : RoomDatabase() {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*OutboxDaoTest*"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.data.db.OutboxDaoTest`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1053,7 +1054,7 @@ class OutboxRepositoryImplTest {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*OutboxRepositoryImplTest*"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.data.db.OutboxRepositoryImplTest`
 Expected: FAIL — classes unresolved.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1106,7 +1107,7 @@ class OutboxRepositoryImpl @Inject constructor(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*OutboxRepositoryImplTest*"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.data.db.OutboxRepositoryImplTest`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1780,7 +1781,7 @@ class HiltTestRunner : AndroidJUnitRunner() {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*HiltGraphTest*"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.di.HiltGraphTest`
 Expected: FAIL — no bindings.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -1880,7 +1881,7 @@ abstract class MqttModule {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*HiltGraphTest*"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.di.HiltGraphTest`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -2339,7 +2340,7 @@ class BiometricAuthenticatorTest {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*BiometricAuthenticatorTest*"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.applock.BiometricAuthenticatorTest`
 Expected: FAIL — class unresolved.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -2411,7 +2412,7 @@ fun AppLockGate(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `./gradlew :app:connectedDebugAndroidTest --tests "*BiometricAuthenticatorTest*"`
+Run: `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.applock.BiometricAuthenticatorTest`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -2796,7 +2797,7 @@ class LockedScreenTest {
     }
 }
 ```
-- [ ] **Step 2: Run → FAIL** `./gradlew :app:connectedDebugAndroidTest --tests "*LockedScreenTest*"`
+- [ ] **Step 2: Run → FAIL** `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.nyasa.notifybridge.ui.locked.LockedScreenTest`
 - [ ] **Step 3: Implement**
 ```kotlin
 package com.nyasa.notifybridge.ui.locked
