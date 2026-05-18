@@ -43,12 +43,15 @@ class HiveMqClientManager @Inject constructor(
     override suspend fun connect(config: BrokerConfig) {
         state.value = ConnectionState.CONNECTING
         device = config.deviceName
+        runCatching { client?.disconnect()?.await() }
+        client = null
         val builder = MqttClient.builder().useMqttVersion5()
             .identifier(clientId(config))
             .serverHost(config.host)
             .serverPort(config.port)
             .automaticReconnectWithDefaultConfig()
             .addDisconnectedListener { state.value = ConnectionState.DISCONNECTED }
+            .addConnectedListener { state.value = ConnectionState.CONNECTED }
         if (useTls(config)) {
             if (requiresPinnedCert(config)) {
                 // §3.3/S4: pin to ONLY the supplied cert.
