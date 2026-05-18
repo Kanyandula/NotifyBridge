@@ -16,6 +16,6 @@ class DrainOutboxUseCase @Inject constructor(
             // the next drain (foreground service / 15-min worker).
             if (ok) outbox.markPublished(item.id) else { outbox.recordFailure(item.id); break }
         }
-        outbox.pruneExpired(nowMs = System.currentTimeMillis(), ttlMs = 7L * 24 * 60 * 60 * 1000, maxRows = 5_000)
+        runCatching { outbox.pruneExpired(nowMs = System.currentTimeMillis(), ttlMs = 7L * 24 * 60 * 60 * 1000, maxRows = 5_000) }
     }
 }
