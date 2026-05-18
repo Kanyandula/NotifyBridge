@@ -15,7 +15,9 @@ import com.nyasa.notifybridge.domain.repo.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val ds: DataStore<Preferences>,
 ) : SettingsRepository {
@@ -40,7 +42,7 @@ class SettingsRepositoryImpl @Inject constructor(
             deviceName = p[K.device] ?: "phone",
             username = p[K.user],
             password = p[K.pass],
-            tlsMode = p[K.tls]?.let { TlsMode.valueOf(it) } ?: TlsMode.OFF,
+            tlsMode = p[K.tls]?.let { runCatching { TlsMode.valueOf(it) }.getOrNull() } ?: TlsMode.OFF,
             pinnedCertPem = p[K.pin],
         )
     }

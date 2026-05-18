@@ -4,7 +4,9 @@ import com.nyasa.notifybridge.domain.model.OutboxItem
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class OutboxRepositoryImpl @Inject constructor(
     private val dao: OutboxDao,
 ) : OutboxRepository {
