@@ -197,7 +197,17 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            // Local/internal-testing signing (debug keystore) so the release
+            // build (which includes the FGS/listener/boot components the debug
+            // APK excludes) is installable for the Task 25 manual checklist.
+            // NOT a production signing identity. (Correction: post-impl; the
+            // original plan had no signingConfig so no installable release.)
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -2931,5 +2941,7 @@ After all 25 tasks, a final cross-cutting review (correctness + architecture + s
 - **G — corrupt-pref DoS.** `SettingsRepositoryImpl` `TlsMode.valueOf(it)` (Task 8) threw on a corrupt/tampered stored value, terminating the `brokerConfig` flow for all collectors. Now `runCatching { TlsMode.valueOf(it) }.getOrNull() ?: TlsMode.OFF`. Commit `e8e7d40`.
 
 **Known issue — must-fix before release (F, documented, not fixed):** `BiometricAuthenticator.prompt()` uses `setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)`, which throws `IllegalArgumentException` on API 26–29 (androidx.biometric 1.1.0). minSdk is 26, so on API 26–29 the unlock path crashes (fails **safe** — stays locked, no content exposed — but the app is unusable with app-lock enabled, the default). Effective app-lock floor is API 30 until `prompt()` is SDK-branched (e.g. `KeyguardManager.createConfirmDeviceCredentialIntent` fallback below API 30). Recorded in README. Other accepted residuals (plan-verbatim/spec-by-design): `isMinifyEnabled=false` (v1), title not redacted (spec design), plaintext DataStore (spec-accepted; mitigated by B), one-shot recent list (v1), FLAG_SECURE per-screen transition gap, Broker UI keeps PINNED disabled though the trust manager (Task 25) is wired.
+
+- **Task 25 enablement — release signing.** Task 1's `buildTypes` had no `signingConfig`, so `assembleRelease` produced only an *unsigned*, un-installable APK — and the debug APK excludes the FGS/listener/boot components — making the Task 25 device manual checklist impossible to perform at all. Added `release.signingConfig = signingConfigs.getByName("debug")` (local/internal-testing only, not a production identity). The signed `app-release.apk` includes the live components for on-device manual verification.
 
 Post-remediation verification: 43 unit + 9 instrumented tests pass; `assembleDebug` + `assembleRelease` (lint-vital) succeed.

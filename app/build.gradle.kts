@@ -17,7 +17,16 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "com.nyasa.notifybridge.HiltTestRunner"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            // Local/internal-testing signing only (debug keystore) so a release
+            // build — which, unlike debug, includes MqttForegroundService /
+            // NotifListenerService / BootReceiver — is installable for the
+            // Task 25 manual checklist. NOT a production signing identity.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
