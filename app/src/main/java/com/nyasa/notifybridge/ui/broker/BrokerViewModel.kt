@@ -1,0 +1,89 @@
+package com.nyasa.notifybridge.ui.broker
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.nyasa.notifybridge.domain.model.BrokerConfig
+import com.nyasa.notifybridge.domain.model.TlsMode
+import com.nyasa.notifybridge.domain.repo.SettingsRepository
+import com.nyasa.notifybridge.domain.usecase.TestConnectionUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+// ── Pure logic (tested verbatim) ────────────────────────────────────────────
+fun isValid(c: BrokerConfig) = c.host.isNotBlank() && c.port in 1..65535
+
+fun certError(mode: TlsMode, pem: String?): String? =
+    if (mode == TlsMode.PINNED && pem.isNullOrBlank()) "Select a CA/cert file" else null
+
+// ── ViewModel ────────────────────────────────────────────────────────────────
+
+@HiltViewModel
+class BrokerViewModel @Inject constructor(
+    private val settings: SettingsRepository,
+    private val testConnection: TestConnectionUseCase,
+) : ViewModel() {
+
+    private val _config = MutableStateFlow(BrokerConfig())
+    val config: StateFlow<BrokerConfig> = _config.asStateFlow()
+
+    /** Null = no result yet; non-null = "Connected" or "Failed" */
+    private val _testResult = MutableStateFlow<String?>(null)
+    val testResult: StateFlow<String?> = _testResult.asStateFlow()
+
+    /** True while save() is running (guards duplicate presses). */
+    private val _saving = MutableStateFlow(false)
+    val saving: StateFlow<Boolean> = _saving.asStateFlow()
+
+    /** One-shot event: true means save succeeded; collect in composable to start service + nav. */
+    private val _saveSuccess = MutableStateFlow(false)
+    val saveSuccess: StateFlow<Boolean> = _saveSuccess.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _config.value = settings.brokerConfig.first()
+        }
+    }
+
+    // ── Field update functions ───────────────────────────────────────────────
+
+    fun updateHost(v: String) = _config.update { it.copy(host = v) }
+    fun updatePort(v: String) = _config.update { it.copy(port = v.toIntOrNull() ?: it.port) }
+    fun updateDeviceName(v: String) = _config.update { it.copy(deviceName = v) }
+    fun updateUsername(v: String) = _config.update { it.copy(username = v.ifBlank { null }) }
+    fun updatePassword(v: String) = _config.update { it.copy(password = v.ifBlank { null }) }
+    fun updateTlsMode(v: TlsMode) = _config.update { it.copy(tlsMode = v) }
+    fun updatePinnedCertPem(v: String?) = _config.update { it.copy(pinnedCertPem = v) }
+
+    // ── Actions ──────────────────────────────────────────────────────────────
+
+    fun test() {
+        viewModelScope.launch {
+            _testResult.value = null
+            val ok = runCatching { testConnection(_config.value) }.getOrDefault(false)
+            _testResult.value = if (ok) "Connected" else "Failed"
+        }
+    }
+
+    /** Persists config if valid. Composable observes [saveSuccess] to start the service + navigate. */
+    fun save() {
+        val current = _config.value
+        if (!isValid(current)) return
+        viewModelScope.launch {
+            _saving.value = true
+            runCatching { settings.setBrokerConfig(current) }
+            _saving.value = false
+            _saveSuccess.value = true
+        }
+    }
+
+    /** Called by composable after consuming the save-success event. */
+    fun consumeSaveSuccess() {
+        _saveSuccess.value = false
+    }
+}
