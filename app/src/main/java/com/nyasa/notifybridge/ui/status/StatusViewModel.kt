@@ -23,6 +23,7 @@ fun displayBody(body: String, redact: Boolean, revealed: Boolean): String =
     if (redact && !revealed) "•".repeat(6) else body
 
 data class RecentItem(
+    val id: Long,
     val app: String,
     val title: String,
     val body: String,
@@ -35,7 +36,6 @@ data class StatusUiState(
     val brokerConfig: BrokerConfig = BrokerConfig(),
     val allowListSize: Int = 0,
     val appLock: AppLockPrefs = AppLockPrefs(),
-    val recentItems: List<RecentItem> = emptyList(),
 )
 
 private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -47,12 +47,14 @@ class StatusViewModel @Inject constructor(
     private val settings: SettingsRepository,
 ) : ViewModel() {
 
+    // v1: read-on-load snapshot (plan §3.5 "read-only"); not a live stream.
     private val recentFlow = flow {
         val batch = outbox.nextBatch(20)
         val items = batch.mapNotNull { item ->
             runCatching {
                 val obj = lenientJson.parseToJsonElement(item.payload).jsonObject
                 RecentItem(
+                    id = item.id,
                     app = obj["app"]?.jsonPrimitive?.content.orEmpty(),
                     title = obj["title"]?.jsonPrimitive?.content.orEmpty(),
                     body = obj["text"]?.jsonPrimitive?.content.orEmpty(),
@@ -76,7 +78,6 @@ class StatusViewModel @Inject constructor(
             brokerConfig = broker,
             allowListSize = allow.size,
             appLock = lock,
-            // recentItems filled separately via recentFlow on first load
         )
     }.stateIn(
         scope = viewModelScope,

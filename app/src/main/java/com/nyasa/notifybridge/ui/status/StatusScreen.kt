@@ -77,8 +77,8 @@ fun StatusScreen(nav: NavHostController) {
         }
     }
 
-    // Per-row reveal state keyed by outbox item index
-    val revealedRows = remember { mutableStateMapOf<Int, Boolean>() }
+    // Per-row reveal state keyed by stable OutboxItem.id
+    val revealedRows = remember { mutableStateMapOf<Long, Boolean>() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -274,7 +274,7 @@ fun StatusScreen(nav: NavHostController) {
                 )
             } else {
                 recentItems.forEachIndexed { index, item ->
-                    val isRevealed = revealedRows[index] == true
+                    val isRevealed = revealedRows[item.id] == true
                     val redact = state.appLock.redactBody
                     val activity = context as? FragmentActivity
 
@@ -286,7 +286,7 @@ fun StatusScreen(nav: NavHostController) {
                             if (redact && !isRevealed && activity != null) {
                                 BiometricAuthenticator(context).prompt(
                                     activity = activity,
-                                    onSuccess = { revealedRows[index] = true },
+                                    onSuccess = { revealedRows[item.id] = true },
                                     onFail = {},
                                 )
                             }
