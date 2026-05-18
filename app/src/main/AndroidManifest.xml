@@ -4,6 +4,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Android 14+ (targetSDK 34+): the `connectedDevice` FGS type requires
+         FOREGROUND_SERVICE_CONNECTED_DEVICE AND one of a companion permission
+         set. CHANGE_NETWORK_STATE is a normal (auto-granted) member of that set
+         and fits a service maintaining an MQTT network connection. Without it,
+         startForeground(...,FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE) throws
+         SecurityException → service create crash on API 34+. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
