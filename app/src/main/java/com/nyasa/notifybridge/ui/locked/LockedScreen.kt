@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun LockedScreen(onUnlock: () -> Unit) {
     Column(
-        Modifier.fillMaxSize().padding(24.dp),
+        Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally) {
         Text("NotifyBridge")

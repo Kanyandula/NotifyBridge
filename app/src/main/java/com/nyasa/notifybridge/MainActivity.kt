@@ -2,6 +2,7 @@ package com.nyasa.notifybridge
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.nyasa.notifybridge.applock.AppLockGate
@@ -27,6 +28,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
+        enableEdgeToEdge()
         lock = AppLockManager(enabled = { prefsEnabled }, idleMs = { idle })
         lifecycleScope.launch {
             settings.appLock.collect {
