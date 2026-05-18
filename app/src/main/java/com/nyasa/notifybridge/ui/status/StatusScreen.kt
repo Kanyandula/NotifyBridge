@@ -46,15 +46,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.nyasa.notifybridge.applock.BiometricAuthenticator
+import com.nyasa.notifybridge.domain.model.AppLockPrefs
+import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.ConnectionState
 import com.nyasa.notifybridge.ui.theme.Amber
 import com.nyasa.notifybridge.ui.theme.ErrorRed
+import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -80,14 +84,46 @@ fun StatusScreen(nav: NavHostController) {
     // Per-row reveal state keyed by stable OutboxItem.id
     val revealedRows = remember { mutableStateMapOf<Long, Boolean>() }
 
+    StatusContent(
+        state = state,
+        recentItems = recentItems,
+        revealedIds = revealedRows.filterValues { it }.keys,
+        onRevealRequest = { item ->
+            val redact = state.appLock.redactBody
+            val isRevealed = revealedRows[item.id] == true
+            val activity = context as? FragmentActivity
+            if (redact && !isRevealed && activity != null) {
+                BiometricAuthenticator(context).prompt(
+                    activity = activity,
+                    onSuccess = { revealedRows[item.id] = true },
+                    onFail = {},
+                )
+            }
+        },
+        onNavApps = { nav.navigate("apps") },
+        onNavBroker = { nav.navigate("broker") },
+        onNavPermissions = { nav.navigate("permissions") },
+    )
+}
+
+@Composable
+private fun StatusContent(
+    state: StatusUiState,
+    recentItems: List<RecentItem>,
+    revealedIds: Set<Long>,
+    onRevealRequest: (RecentItem) -> Unit,
+    onNavApps: () -> Unit,
+    onNavBroker: () -> Unit,
+    onNavPermissions: () -> Unit,
+) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             StatusBottomNav(
                 onStatus = { /* already here */ },
-                onApps = { nav.navigate("apps") },
-                onBroker = { nav.navigate("broker") },
-                onAccess = { nav.navigate("permissions") },
+                onApps = onNavApps,
+                onBroker = onNavBroker,
+                onAccess = onNavPermissions,
             )
         },
     ) { innerPadding ->
@@ -230,7 +266,7 @@ fun StatusScreen(nav: NavHostController) {
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    TextButton(onClick = { nav.navigate("apps") }) {
+                    TextButton(onClick = onNavApps) {
                         Text(
                             text = "MANAGE",
                             style = MaterialTheme.typography.labelMedium,
@@ -274,23 +310,14 @@ fun StatusScreen(nav: NavHostController) {
                 )
             } else {
                 recentItems.forEachIndexed { index, item ->
-                    val isRevealed = revealedRows[item.id] == true
+                    val isRevealed = item.id in revealedIds
                     val redact = state.appLock.redactBody
-                    val activity = context as? FragmentActivity
 
                     RecentRow(
                         item = item,
                         redact = redact,
                         revealed = isRevealed,
-                        onClick = {
-                            if (redact && !isRevealed && activity != null) {
-                                BiometricAuthenticator(context).prompt(
-                                    activity = activity,
-                                    onSuccess = { revealedRows[item.id] = true },
-                                    onFail = {},
-                                )
-                            }
-                        },
+                        onClick = { onRevealRequest(item) },
                     )
                     if (index < recentItems.lastIndex) {
                         Spacer(modifier = Modifier.height(2.dp))
@@ -455,6 +482,79 @@ private fun StatusBottomNav(
                 unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             ),
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Status · Connected + activity")
+@Composable
+private fun StatusConnectedPreview() {
+    NotifyBridgeTheme {
+        StatusContent(
+            state = StatusUiState(
+                connectionState = ConnectionState.CONNECTED,
+                outboxDepth = 4,
+                brokerConfig = BrokerConfig(host = "192.168.1.10"),
+                allowListSize = 3,
+                appLock = AppLockPrefs(redactBody = false),
+            ),
+            recentItems = listOf(
+                RecentItem(1L, "Signal", "Alice", "Are we still on for 6?", 1_716_000_000_000L),
+                RecentItem(2L, "Gmail", "Invoice #1042", "Your receipt is attached", 1_716_000_300_000L),
+                RecentItem(3L, "Slack", "#deploys", "build green on main", 1_716_000_600_000L),
+            ),
+            revealedIds = emptySet(),
+            onRevealRequest = {},
+            onNavApps = {},
+            onNavBroker = {},
+            onNavPermissions = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Status · Disconnected + empty")
+@Composable
+private fun StatusDisconnectedPreview() {
+    NotifyBridgeTheme {
+        StatusContent(
+            state = StatusUiState(
+                connectionState = ConnectionState.DISCONNECTED,
+                outboxDepth = 0,
+                brokerConfig = BrokerConfig(host = "192.168.1.10"),
+                allowListSize = 0,
+                appLock = AppLockPrefs(redactBody = false),
+            ),
+            recentItems = emptyList(),
+            revealedIds = emptySet(),
+            onRevealRequest = {},
+            onNavApps = {},
+            onNavBroker = {},
+            onNavPermissions = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Status · Redacted recent")
+@Composable
+private fun StatusRedactedPreview() {
+    NotifyBridgeTheme {
+        StatusContent(
+            state = StatusUiState(
+                connectionState = ConnectionState.CONNECTED,
+                outboxDepth = 1,
+                brokerConfig = BrokerConfig(host = "192.168.1.10"),
+                allowListSize = 2,
+                appLock = AppLockPrefs(redactBody = true),
+            ),
+            recentItems = listOf(
+                RecentItem(1L, "Bank", "OTP", "Your code is 884213", 1_716_000_000_000L),
+                RecentItem(2L, "Signal", "Bob", "see you then", 1_716_000_300_000L),
+            ),
+            revealedIds = emptySet(),
+            onRevealRequest = {},
+            onNavApps = {},
+            onNavBroker = {},
+            onNavPermissions = {},
         )
     }
 }
