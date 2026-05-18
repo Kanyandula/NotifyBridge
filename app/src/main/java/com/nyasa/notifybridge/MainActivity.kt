@@ -11,9 +11,11 @@ import com.nyasa.notifybridge.domain.repo.SettingsRepository
 import com.nyasa.notifybridge.ui.NotifyBridgeNavHost
 import com.nyasa.notifybridge.ui.locked.LockedScreen
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
+import androidx.core.app.NotificationManagerCompat
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -35,6 +37,10 @@ class MainActivity : FragmentActivity() {
                 if (!it.enabled) lock.onAuthenticated()
             }
         }
+        val notifAccess = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+        val brokerSet = runBlocking { settings.brokerConfig.first() }.host.isNotBlank()
+        val appsChosen = runBlocking { settings.allowList.first() }.isNotEmpty()
+        val startOnboarding = !(notifAccess && brokerSet && appsChosen)
         val auth = BiometricAuthenticator(this)
         setContent {
             NotifyBridgeTheme {
@@ -46,7 +52,7 @@ class MainActivity : FragmentActivity() {
                                 onFail = {})
                         })
                     },
-                    content = { NotifyBridgeNavHost(startOnboarding = false) })
+                    content = { NotifyBridgeNavHost(startOnboarding = startOnboarding) })
             }
         }
         // FLAG_SECURE applied per-screen in Status/Broker (Task 20/21).
