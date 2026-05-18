@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 // ── Pure logic (tested verbatim) ────────────────────────────────────────────
@@ -29,7 +30,13 @@ class BrokerViewModel @Inject constructor(
     private val testConnection: TestConnectionUseCase,
 ) : ViewModel() {
 
-    private val _config = MutableStateFlow(BrokerConfig())
+    // Seed synchronously at construction. An async seed (viewModelScope.launch
+    // { _config.value = settings.brokerConfig.first() }) races the bound
+    // TextFields: a delayed emission overwrites in-progress user edits, so a
+    // typed device name silently reverts to the "phone" default (§3.4). A
+    // single DataStore first() read is fast (same pattern as MainActivity's
+    // launch-time gate); doing it here removes the clobber window entirely.
+    private val _config = MutableStateFlow(runBlocking { settings.brokerConfig.first() })
     val config: StateFlow<BrokerConfig> = _config.asStateFlow()
 
     /** Null = no result yet; non-null = "Connected" or "Failed" */
@@ -43,12 +50,6 @@ class BrokerViewModel @Inject constructor(
     /** One-shot event: true means save succeeded; collect in composable to start service + nav. */
     private val _saveSuccess = MutableStateFlow(false)
     val saveSuccess: StateFlow<Boolean> = _saveSuccess.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            _config.value = settings.brokerConfig.first()
-        }
-    }
 
     // ── Field update functions ───────────────────────────────────────────────
 
