@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      Debug-variant overlay. Instrumented tests run the `debug` app-under-test
+      APK under HiltTestRunner/HiltTestApplication (Task 12). MqttForegroundService
+      is @AndroidEntryPoint + START_STICKY (Task 13) and BootReceiver auto-starts
+      it (Task 15); the OS recreates the service into the HiltTestApplication
+      process — which has no app Hilt component for non-@HiltAndroidTest tests —
+      crashing the instrumentation before any test runs. The service/worker/boot
+      path is verified MANUALLY in Task 25 (not via instrumented tests), so
+      removing these components from the debug/test APK loses no intended
+      coverage. Exercise the live bridge with a release build (see Task 25).
+    -->
+    <application>
+        <service android:name=".service.MqttForegroundService" tools:node="remove" />
+        <service android:name=".service.NotifListenerService" tools:node="remove" />
+        <receiver android:name=".service.BootReceiver" tools:node="remove" />
+    </application>
+</manifest>

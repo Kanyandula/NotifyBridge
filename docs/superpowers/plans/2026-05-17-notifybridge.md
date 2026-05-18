@@ -14,6 +14,7 @@ Source of truth: `docs/superpowers/specs/2026-05-17-notifybridge-design.md` (rev
 - Package root `com.nyasa.notifybridge`. Paths below are under `app/src/main/java/com/nyasa/notifybridge/` (main) and `app/src/test/...` / `app/src/androidTest/...`.
 - TDD: failing test → run (fail) → minimal impl → run (pass) → commit. Commit messages: imperative, ≤72 char subject, no AI attribution.
 - Instrumented (`connectedDebugAndroidTest`) commands use `-Pandroid.testInstrumentationRunnerArguments.class=<FQCN>` to target a single test class. (This AGP version rejects Gradle's `--tests` filter for the connected-test task; the property is the supported equivalent and was verified working.)
+- `app/src/debug/AndroidManifest.xml` removes `MqttForegroundService`, `NotifListenerService`, and `BootReceiver` (`tools:node="remove"`) from the **debug** app-under-test APK. Required because instrumented tests run under `HiltTestRunner`/`HiltTestApplication` (Task 12): the OS recreates the `@AndroidEntryPoint` + `START_STICKY` `MqttForegroundService` into a process with no app Hilt component, crashing the run before any test executes (an uninstall/runtime workaround cannot prevent the OS-driven sticky restart — verified). Instrumented tests never exercise the service/worker/boot path (verified manually in Task 25), so this loses no intended coverage. The live bridge must be exercised with a **release** build (see Task 25).
 - Stable interface names used across tasks (do not rename):
   - `SettingsRepository`: `brokerConfig: Flow<BrokerConfig>`, `setBrokerConfig(BrokerConfig)`, `allowList: Flow<Set<String>>`, `setAllowList(Set<String>)`, `appLock: Flow<AppLockPrefs>`, `setAppLock(AppLockPrefs)`.
   - `OutboxRepository`: `enqueue(OutboxItem)`, `nextBatch(limit: Int): List<OutboxItem>`, `markPublished(id: Long)`, `recordFailure(id: Long)`, `pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int)`, `depth(): Flow<Int>`.
@@ -2843,7 +2844,7 @@ In `HiveMqClientManager.connect`, when `requiresPinnedCert(config)`, build an `S
 Run: `./gradlew :app:testDebugUnitTest`
 Expected: PASS — all unit tests.
 Run: `./gradlew :app:connectedDebugAndroidTest`
-Expected: PASS — Room/Hilt/biometric/Compose tests (device or emulator API 30+ recommended; note the §3.8 caveat for API 26–29).
+Expected: PASS — Room/Hilt/biometric/Compose tests (device or emulator API 30+ recommended; note the §3.8 caveat for API 26–29). The `debug` APK excludes `MqttForegroundService`/`NotifListenerService`/`BootReceiver` (see the `src/debug/AndroidManifest.xml` note in plan-wide conventions), so this suite does NOT cover the live MQTT/notification/boot path — that path is verified by the **manual checklist below using a non-debug (release) build** where those components are present.
 
 - [ ] **Step 3: Device manual verification checklist** (record results in commit message)
 
