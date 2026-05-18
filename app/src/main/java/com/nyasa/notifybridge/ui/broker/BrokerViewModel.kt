@@ -53,7 +53,7 @@ class BrokerViewModel @Inject constructor(
     // ── Field update functions ───────────────────────────────────────────────
 
     fun updateHost(v: String) = _config.update { it.copy(host = v) }
-    fun updatePort(v: String) = _config.update { it.copy(port = v.toIntOrNull() ?: it.port) }
+    fun updatePort(v: String) = _config.update { it.copy(port = v.toIntOrNull() ?: 0) }
     fun updateDeviceName(v: String) = _config.update { it.copy(deviceName = v) }
     fun updateUsername(v: String) = _config.update { it.copy(username = v.ifBlank { null }) }
     fun updatePassword(v: String) = _config.update { it.copy(password = v.ifBlank { null }) }
@@ -76,9 +76,13 @@ class BrokerViewModel @Inject constructor(
         if (!isValid(current)) return
         viewModelScope.launch {
             _saving.value = true
-            runCatching { settings.setBrokerConfig(current) }
+            val result = runCatching { settings.setBrokerConfig(current) }
             _saving.value = false
-            _saveSuccess.value = true
+            if (result.isSuccess) {
+                _saveSuccess.value = true
+            } else {
+                _testResult.value = "Save failed"
+            }
         }
     }
 
