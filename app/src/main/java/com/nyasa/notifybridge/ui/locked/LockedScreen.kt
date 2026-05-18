@@ -24,7 +24,7 @@ fun LockedScreen(onUnlock: () -> Unit) {
     }
 }
 
-@Preview(showBackground = true, name = "Locked")
+@Preview(showBackground = true, name = "Locked · Unlock prompt")
 @Composable
 private fun LockedScreenPreview() {
     NotifyBridgeTheme {

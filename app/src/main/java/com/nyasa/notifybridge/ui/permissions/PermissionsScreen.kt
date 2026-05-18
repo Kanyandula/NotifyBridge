@@ -95,6 +95,8 @@ fun PermissionsScreen(nav: NavHostController) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
+    // Refresh permission state every time the screen resumes (user may have
+    // granted access in system Settings and returned).
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             vm.refresh()
