@@ -2424,6 +2424,8 @@ git add -A && git commit -m "Add biometric authenticator + app-lock gate"
 
 ## Task 18: Theme + nav scaffold + MainActivity wiring (§3.7, §3.8)
 
+> **Correction (post-impl):** the `appLock.collect` block must also `if (!it.enabled) lock.onAuthenticated()`. Without it, a user who has *disabled* app-lock is stuck on `LockedScreen` on every cold start: `_locked` initializes `true` (enabled-by-default) and the `hasStartedOnce` cold-open guard skips `onForegrounded`, so nothing unlocks them until a background/foreground cycle. (Separately, the API 26–29 `BiometricAuthenticator.prompt()` crash from the §3.8 version caveat remains a documented must-fix-before-release: effective app-lock minSdk is 30 until `prompt()` is SDK-branched.)
+
 **Files:**
 - Create: `ui/theme/Color.kt`, `Type.kt`, `Theme.kt`, `ui/NotifyBridgeNavHost.kt`
 - Modify: `MainActivity.kt`
@@ -2524,7 +2526,13 @@ class MainActivity : FragmentActivity() {
         super.onCreate(s)
         lock = AppLockManager(enabled = { prefsEnabled }, idleMs = { idle })
         lifecycleScope.launch {
-            settings.appLock.collect { prefsEnabled = it.enabled; idle = it.idleTimeoutMs }
+            settings.appLock.collect {
+                prefsEnabled = it.enabled; idle = it.idleTimeoutMs
+                // Cold start: _locked initializes true (enabled-by-default). Once
+                // prefs load, unlock if the user has app-lock disabled — onStart
+                // is skipped on cold open (hasStartedOnce), so nothing else would.
+                if (!it.enabled) lock.onAuthenticated()
+            }
         }
         val auth = BiometricAuthenticator(this)
         setContent {

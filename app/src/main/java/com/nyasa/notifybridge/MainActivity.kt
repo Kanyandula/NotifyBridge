@@ -27,7 +27,13 @@ class MainActivity : FragmentActivity() {
         super.onCreate(s)
         lock = AppLockManager(enabled = { prefsEnabled }, idleMs = { idle })
         lifecycleScope.launch {
-            settings.appLock.collect { prefsEnabled = it.enabled; idle = it.idleTimeoutMs }
+            settings.appLock.collect {
+                prefsEnabled = it.enabled; idle = it.idleTimeoutMs
+                // Cold start: _locked initializes true (enabled-by-default). Once
+                // prefs load, unlock if the user has app-lock disabled — onStart
+                // is skipped on cold open (hasStartedOnce), so nothing else would.
+                if (!it.enabled) lock.onAuthenticated()
+            }
         }
         val auth = BiometricAuthenticator(this)
         setContent {
