@@ -265,6 +265,8 @@ captures/
 
 - [ ] **Step 4: Create app classes and manifest**
 
+> **Correction (post-impl):** the manifest must remove WorkManager's default `androidx.startup` initializer (the `<provider tools:node="remove">` block below). `NotifyBridgeApp` is a `Configuration.Provider` (for `HiltWorkerFactory`); without the removal, WorkManager double-initializes WITHOUT the Hilt factory — Task 15's `@HiltWorker OutboxDrainWorker` fails to instantiate at runtime — and `lintVitalRelease` fails the release build (only surfaces on release; debug/unit/instrumented never run lint-vital). Requires `xmlns:tools` on `<manifest>`.
+
 `NotifyBridgeApp.kt`:
 ```kotlin
 package com.nyasa.notifybridge
@@ -305,7 +307,8 @@ class MainActivity : ComponentActivity() {
 `app/src/main/AndroidManifest.xml`:
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
@@ -319,6 +322,20 @@ class MainActivity : ComponentActivity() {
         android:label="NotifyBridge"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
+        <!-- NotifyBridgeApp is a WorkManager Configuration.Provider; remove the
+             default startup initializer or WorkManager double-inits without the
+             HiltWorkerFactory (OutboxDrainWorker fails) and lintVitalRelease
+             fails the release build. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true">
