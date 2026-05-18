@@ -39,10 +39,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 
 @Composable
 fun OnboardingScreen(nav: NavHostController) {
@@ -58,6 +60,26 @@ fun OnboardingScreen(nav: NavHostController) {
         }
     }
 
+    OnboardingContent(
+        state = state,
+        onGrantAccess = {
+            context.startActivity(
+                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        },
+        onConfigureBroker = { nav.navigate("broker") },
+        onChooseApps = { nav.navigate("apps") },
+    )
+}
+
+@Composable
+private fun OnboardingContent(
+    state: OnboardingUiState,
+    onGrantAccess: () -> Unit,
+    onConfigureBroker: () -> Unit,
+    onChooseApps: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -69,7 +91,7 @@ fun OnboardingScreen(nav: NavHostController) {
     ) {
         // Top bar
         Row(
-        modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -129,12 +151,7 @@ fun OnboardingScreen(nav: NavHostController) {
             buttonIcon = { Icon(Icons.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp)) },
             isActive = step1Active,
             isEnabled = step1Active,
-            onClick = {
-                context.startActivity(
-                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            },
+            onClick = onGrantAccess,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -149,7 +166,7 @@ fun OnboardingScreen(nav: NavHostController) {
             buttonIcon = null,
             isActive = step2Active,
             isEnabled = step2Active,
-            onClick = { nav.navigate("broker") },
+            onClick = onConfigureBroker,
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -164,7 +181,7 @@ fun OnboardingScreen(nav: NavHostController) {
             buttonIcon = null,
             isActive = step3Active,
             isEnabled = step3Active,
-            onClick = { nav.navigate("apps") },
+            onClick = onChooseApps,
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -276,5 +293,38 @@ private fun StepCard(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true, name = "Onboarding · Step 1")
+@Composable
+private fun OnboardingStep1Preview() {
+    NotifyBridgeTheme {
+        OnboardingContent(
+            state = OnboardingUiState(OnboardingStep.GRANT_ACCESS),
+            onGrantAccess = {}, onConfigureBroker = {}, onChooseApps = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Onboarding · Step 2")
+@Composable
+private fun OnboardingStep2Preview() {
+    NotifyBridgeTheme {
+        OnboardingContent(
+            state = OnboardingUiState(OnboardingStep.CONNECT_BROKER),
+            onGrantAccess = {}, onConfigureBroker = {}, onChooseApps = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Onboarding · Step 3")
+@Composable
+private fun OnboardingStep3Preview() {
+    NotifyBridgeTheme {
+        OnboardingContent(
+            state = OnboardingUiState(OnboardingStep.CHOOSE_APPS),
+            onGrantAccess = {}, onConfigureBroker = {}, onChooseApps = {},
+        )
     }
 }
