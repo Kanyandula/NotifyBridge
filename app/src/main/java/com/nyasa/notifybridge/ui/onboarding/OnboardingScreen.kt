@@ -119,7 +119,6 @@ fun OnboardingScreen(nav: NavHostController) {
 
         // Step 1 — Grant notification access
         val step1Active = state.activeStep == OnboardingStep.GRANT_ACCESS
-        val step1Past = state.activeStep != OnboardingStep.GRANT_ACCESS
         StepCard(
             number = 1,
             title = "Grant notification access",
