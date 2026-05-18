@@ -2916,3 +2916,20 @@ git add -A && git commit -m "Complete pinned-cert trust, add README, verify end 
 **3. Type consistency:** Interface signatures fixed in the conventions header and used identically in Tasks 7–14 (`enqueue`, `nextBatch`, `markPublished`, `recordFailure`, `pruneExpired`, `depth`; `connect`/`publish`/`disconnect`; `stateTopic`/`discoveryConfig`/`eventPayload`). `MainActivity` base-class change to `FragmentActivity` flagged in Task 17 and applied in Task 18. Consistent.
 
 No gaps requiring new tasks.
+
+---
+
+## Post-implementation remediation (final whole-implementation review)
+
+After all 25 tasks, a final cross-cutting review (correctness + architecture + security) found defects that per-task verbatim review structurally could not catch (each per-task review sees only one diff). Fixed as controller-level corrections (each implemented + spec/quality reviewed); the code is the source of truth, these notes record the divergence from the verbatim task blocks above:
+
+- **A — §3.2 TTL/cap was unenforced.** `OutboxRepository.pruneExpired` (Task 7) was implemented/tested but never called. Wired into `DrainOutboxUseCase.invoke()` (Task 10) as the last statement, `runCatching`-guarded so a prune failure can't mask drain success: `runCatching { outbox.pruneExpired(System.currentTimeMillis(), 7L*24*60*60*1000, 5_000) }`. Commits `8bb16ec`, `9b194fe`.
+- **B — privacy: cloud backup.** Task 1 manifest lacked `android:allowBackup`; default-true exposed DataStore creds/PEM + outbox payloads to Google backup, contradicting the local-only property. Added `android:allowBackup="false"`. Commit `e8e7d40`.
+- **C — §3.6 onboarding was unreachable.** Task 18 `MainActivity` hardcoded `NotifyBridgeNavHost(startOnboarding = false)`. Now computes `startOnboarding = !(notifAccess && brokerSet && appsChosen)` (same predicate as `OnboardingViewModel`) via a launch-time read. Commit `8e82dba`.
+- **D — MQTT reconnect storm + stuck state.** `HiveMqClientManager.connect()` (Task 11) replaced `client` without disconnecting the prior auto-reconnecting one, and never returned state to CONNECTED after auto-reconnect. Added `runCatching { client?.disconnect()?.await() }; client = null` before rebuild, and `.addConnectedListener { state.value = CONNECTED }`. §3.3/S4 pinned-cert path unchanged. Commit `d6de388`.
+- **E — Hilt scoping.** `OutboxRepositoryImpl` (Task 7) / `SettingsRepositoryImpl` (Task 8) were `@Binds`-bound in SingletonComponent without `@Singleton` (new instance per site; `depth()` flow not shared). Added `@Singleton`. Commit `e8e7d40`.
+- **G — corrupt-pref DoS.** `SettingsRepositoryImpl` `TlsMode.valueOf(it)` (Task 8) threw on a corrupt/tampered stored value, terminating the `brokerConfig` flow for all collectors. Now `runCatching { TlsMode.valueOf(it) }.getOrNull() ?: TlsMode.OFF`. Commit `e8e7d40`.
+
+**Known issue — must-fix before release (F, documented, not fixed):** `BiometricAuthenticator.prompt()` uses `setAllowedAuthenticators(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)`, which throws `IllegalArgumentException` on API 26–29 (androidx.biometric 1.1.0). minSdk is 26, so on API 26–29 the unlock path crashes (fails **safe** — stays locked, no content exposed — but the app is unusable with app-lock enabled, the default). Effective app-lock floor is API 30 until `prompt()` is SDK-branched (e.g. `KeyguardManager.createConfirmDeviceCredentialIntent` fallback below API 30). Recorded in README. Other accepted residuals (plan-verbatim/spec-by-design): `isMinifyEnabled=false` (v1), title not redacted (spec design), plaintext DataStore (spec-accepted; mitigated by B), one-shot recent list (v1), FLAG_SECURE per-screen transition gap, Broker UI keeps PINNED disabled though the trust manager (Task 25) is wired.
+
+Post-remediation verification: 43 unit + 9 instrumented tests pass; `assembleDebug` + `assembleRelease` (lint-vital) succeed.
