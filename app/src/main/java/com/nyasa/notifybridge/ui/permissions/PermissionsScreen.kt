@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -64,8 +65,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
+import com.nyasa.notifybridge.domain.model.AppLockPrefs
 import com.nyasa.notifybridge.ui.theme.Amber
 import com.nyasa.notifybridge.ui.theme.ErrorRed
+import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 
 // ── Idle-timeout options ─────────────────────────────────────────────────────
@@ -92,21 +95,59 @@ fun PermissionsScreen(nav: NavHostController) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
-    // Refresh permission state every time the screen resumes (user may have
-    // granted access in system Settings and returned).
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             vm.refresh()
         }
     }
 
+    PermissionsContent(
+        notifGranted = notifGranted,
+        batteryExempt = batteryExempt,
+        appLock = appLock,
+        onOpenNotifSettings = {
+            context.startActivity(
+                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        },
+        onRequestBatteryExemption = {
+            context.startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(Uri.parse("package:${context.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        },
+        onLockEnabledChange = vm::setLockEnabled,
+        onIdleTimeoutChange = vm::setIdleTimeout,
+        onRedactBodyChange = vm::setRedactBody,
+        onNavStatus = { nav.navigate("status") },
+        onNavApps = { nav.navigate("apps") },
+        onNavBroker = { nav.navigate("broker") },
+    )
+}
+
+@Composable
+private fun PermissionsContent(
+    notifGranted: Boolean,
+    batteryExempt: Boolean,
+    appLock: AppLockPrefs,
+    onOpenNotifSettings: () -> Unit,
+    onRequestBatteryExemption: () -> Unit,
+    onLockEnabledChange: (Boolean) -> Unit,
+    onIdleTimeoutChange: (Long) -> Unit,
+    onRedactBodyChange: (Boolean) -> Unit,
+    onNavStatus: () -> Unit,
+    onNavApps: () -> Unit,
+    onNavBroker: () -> Unit,
+) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             PermissionsBottomNav(
-                onStatus = { nav.navigate("status") },
-                onApps = { nav.navigate("apps") },
-                onBroker = { nav.navigate("broker") },
+                onStatus = onNavStatus,
+                onApps = onNavApps,
+                onBroker = onNavBroker,
                 onAccess = { /* already here */ },
             )
         },
@@ -135,12 +176,7 @@ fun PermissionsScreen(nav: NavHostController) {
                 description = "NotifyBridge can read posted notifications. This is the core permission.",
                 pill = permPill(notifGranted),
                 actionLabel = "Open settings",
-                onAction = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                },
+                onAction = onOpenNotifSettings,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -152,13 +188,7 @@ fun PermissionsScreen(nav: NavHostController) {
                 description = "Android Doze can suspend the bridge while the phone is idle, delaying or dropping notifications. Exempt NotifyBridge to keep it reliable while locked.",
                 pill = permPill(batteryExempt),
                 actionLabel = "Request exemption",
-                onAction = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                            .setData(Uri.parse("package:${context.packageName}"))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                },
+                onAction = onRequestBatteryExemption,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -250,7 +280,7 @@ fun PermissionsScreen(nav: NavHostController) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Switch(
                             checked = appLock.enabled,
-                            onCheckedChange = { vm.setLockEnabled(it) },
+                            onCheckedChange = onLockEnabledChange,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                 checkedTrackColor = Teal,
@@ -266,7 +296,7 @@ fun PermissionsScreen(nav: NavHostController) {
                         // Idle-timeout dropdown
                         IdleTimeoutDropdown(
                             currentMs = appLock.idleTimeoutMs,
-                            onSelect = { vm.setIdleTimeout(it) },
+                            onSelect = onIdleTimeoutChange,
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -293,7 +323,7 @@ fun PermissionsScreen(nav: NavHostController) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Switch(
                                 checked = appLock.redactBody,
-                                onCheckedChange = { vm.setRedactBody(it) },
+                                onCheckedChange = onRedactBodyChange,
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                     checkedTrackColor = Teal,
@@ -536,6 +566,36 @@ private fun PermissionsBottomNav(
                 unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             ),
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Permissions · All granted")
+@Composable
+private fun PermissionsGrantedPreview() {
+    NotifyBridgeTheme {
+        PermissionsContent(
+            notifGranted = true,
+            batteryExempt = true,
+            appLock = AppLockPrefs(enabled = true, idleTimeoutMs = 60_000L, redactBody = true),
+            onOpenNotifSettings = {}, onRequestBatteryExemption = {},
+            onLockEnabledChange = {}, onIdleTimeoutChange = {}, onRedactBodyChange = {},
+            onNavStatus = {}, onNavApps = {}, onNavBroker = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Permissions · Action needed")
+@Composable
+private fun PermissionsActionNeededPreview() {
+    NotifyBridgeTheme {
+        PermissionsContent(
+            notifGranted = false,
+            batteryExempt = false,
+            appLock = AppLockPrefs(enabled = false),
+            onOpenNotifSettings = {}, onRequestBatteryExemption = {},
+            onLockEnabledChange = {}, onIdleTimeoutChange = {}, onRedactBodyChange = {},
+            onNavStatus = {}, onNavApps = {}, onNavBroker = {},
         )
     }
 }
