@@ -26,7 +26,8 @@ import javax.net.ssl.TrustManagerFactory
 internal fun parsePinnedCert(pem: String): X509Certificate {
     require(pem.isNotBlank()) { "pinnedCertPem must not be blank" }
     val factory = CertificateFactory.getInstance("X.509")
-    return factory.generateCertificate(pem.byteInputStream()) as X509Certificate
+    return factory.generateCertificate(pem.byteInputStream()) as? X509Certificate
+        ?: throw IllegalArgumentException("PEM did not decode to an X.509 certificate")
 }
 
 @Singleton
