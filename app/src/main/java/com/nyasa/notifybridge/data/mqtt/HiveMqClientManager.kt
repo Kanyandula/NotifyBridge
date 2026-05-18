@@ -10,8 +10,24 @@ import com.nyasa.notifybridge.domain.model.TlsMode
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.security.KeyStore
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.ssl.TrustManagerFactory
+
+/**
+ * Parses a PEM-encoded X.509 certificate string into an [X509Certificate].
+ *
+ * Fail-loud contract (§3.3/S4): throws on blank input or parse failure —
+ * never silently falls back to system-CA or trust-all.
+ */
+internal fun parsePinnedCert(pem: String): X509Certificate {
+    require(pem.isNotBlank()) { "pinnedCertPem must not be blank" }
+    val factory = CertificateFactory.getInstance("X.509")
+    return factory.generateCertificate(pem.byteInputStream()) as X509Certificate
+}
 
 @Singleton
 class HiveMqClientManager @Inject constructor(
@@ -34,15 +50,26 @@ class HiveMqClientManager @Inject constructor(
             .addDisconnectedListener { state.value = ConnectionState.DISCONNECTED }
         if (useTls(config)) {
             if (requiresPinnedCert(config)) {
-                // Do NOT silently fall back to system-CA — that is the exact
-                // validation downgrade §3.3/S4 forbids. Fail loud until the
-                // pinned trust manager lands in Task 25.
-                state.value = ConnectionState.ERROR
-                throw IllegalStateException(
-                    "Pinned-cert TLS not yet implemented (Task 25). " +
-                    "Use TLS OFF or SYSTEM_CA until then.")
+                // §3.3/S4: pin to ONLY the supplied cert.
+                // parsePinnedCert throws on blank/invalid PEM — no silent downgrade.
+                val cert = runCatching {
+                    parsePinnedCert(config.pinnedCertPem ?: "")
+                }.getOrElse { cause ->
+                    state.value = ConnectionState.ERROR
+                    throw IllegalStateException(
+                        "Failed to parse pinnedCertPem — refusing to connect without pinning",
+                        cause)
+                }
+                val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).also {
+                    it.load(null, null)
+                    it.setCertificateEntry("pinned", cert)
+                }
+                val tmf = TrustManagerFactory.getInstance(
+                    TrustManagerFactory.getDefaultAlgorithm()).also { it.init(keyStore) }
+                builder.sslConfig().trustManagerFactory(tmf).applySslConfig()
+            } else {
+                builder.sslWithDefaultConfig()
             }
-            builder.sslWithDefaultConfig()
         }
         val c = builder.buildAsync()
         client = c
