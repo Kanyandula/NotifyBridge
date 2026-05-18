@@ -46,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,6 +59,7 @@ fun AppsScreen(nav: NavHostController) {
     val vm: AppsViewModel = hiltViewModel()
     val allRows by vm.rows.collectAsState()
     val query by vm.query.collectAsState()
+    val icons by vm.icons.collectAsState()
 
     val displayed = filterApps(allRows, query)
     val enabledCount = allRows.count { it.enabled }
@@ -222,6 +222,7 @@ fun AppsScreen(nav: NavHostController) {
                 items(displayed, key = { it.pkg }) { row ->
                     AppRowItem(
                         row = row,
+                        icon = icons[row.pkg],
                         onToggle = { on -> vm.setEnabled(row.pkg, on) },
                     )
                 }
@@ -234,14 +235,11 @@ fun AppsScreen(nav: NavHostController) {
 // ── App list row ──────────────────────────────────────────────────────────
 
 @Composable
-private fun AppRowItem(row: AppRow, onToggle: (Boolean) -> Unit) {
-    val context = LocalContext.current
-
-    // Load icon lazily; remembered per package so it's not re-fetched on recompose
-    val icon = remember(row.pkg) {
-        runCatching { context.packageManager.getApplicationIcon(row.pkg) }.getOrNull()
-    }
-
+private fun AppRowItem(
+    row: AppRow,
+    icon: android.graphics.drawable.Drawable?,
+    onToggle: (Boolean) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

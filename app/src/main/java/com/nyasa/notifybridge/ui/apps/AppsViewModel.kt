@@ -3,6 +3,7 @@ package com.nyasa.notifybridge.ui.apps
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
+import android.graphics.drawable.Drawable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nyasa.notifybridge.domain.repo.SettingsRepository
@@ -15,7 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -67,6 +70,21 @@ class AppsViewModel @Inject constructor(
         initialValue = emptyList(),
     )
 
+    // Load app icons off the main thread; keyed by package name
+    val icons: StateFlow<Map<String, Drawable?>> = installedAppsFlow
+        .map { apps ->
+            val pm = context.packageManager
+            apps.associate { (_, pkg) ->
+                pkg to runCatching { pm.getApplicationIcon(pkg) }.getOrNull()
+            }
+        }
+        .flowOn(Dispatchers.IO)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyMap(),
+        )
+
     // Track allow-list separately so setEnabled can read current value synchronously
     private val _allowList = MutableStateFlow<Set<String>>(emptySet())
 
@@ -79,8 +97,7 @@ class AppsViewModel @Inject constructor(
     fun setQuery(q: String) { _query.value = q }
 
     fun setEnabled(pkg: String, on: Boolean) {
-        viewModelScope.launch {
-            settings.setAllowList(toggle(_allowList.value, pkg, on))
-        }
+        _allowList.update { toggle(it, pkg, on) }
+        viewModelScope.launch { settings.setAllowList(_allowList.value) }
     }
 }
