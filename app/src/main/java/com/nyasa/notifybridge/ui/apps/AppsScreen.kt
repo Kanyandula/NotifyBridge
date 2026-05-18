@@ -50,10 +50,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 
 @Composable
@@ -63,9 +65,32 @@ fun AppsScreen(nav: NavHostController) {
     val query by vm.query.collectAsState()
     val icons by vm.icons.collectAsState()
 
-    val displayed = filterApps(allRows, query)
-    val enabledCount = allRows.count { it.enabled }
-    val totalCount = allRows.size
+    AppsContent(
+        rows = allRows,
+        query = query,
+        icons = icons,
+        onQueryChange = vm::setQuery,
+        onToggle = vm::setEnabled,
+        onNavStatus = { nav.navigate("status") },
+        onNavBroker = { nav.navigate("broker") },
+        onNavPermissions = { nav.navigate("permissions") },
+    )
+}
+
+@Composable
+private fun AppsContent(
+    rows: List<AppRow>,
+    query: String,
+    icons: Map<String, android.graphics.drawable.Drawable?>,
+    onQueryChange: (String) -> Unit,
+    onToggle: (String, Boolean) -> Unit,
+    onNavStatus: () -> Unit,
+    onNavBroker: () -> Unit,
+    onNavPermissions: () -> Unit,
+) {
+    val displayed = filterApps(rows, query)
+    val enabledCount = rows.count { it.enabled }
+    val totalCount = rows.size
 
     var bannerDismissed by remember { mutableStateOf(false) }
 
@@ -98,7 +123,7 @@ fun AppsScreen(nav: NavHostController) {
                 // ── Search field ─────────────────────────────────────────────
                 OutlinedTextField(
                     value = query,
-                    onValueChange = vm::setQuery,
+                    onValueChange = onQueryChange,
                     placeholder = {
                         Text(
                             "Search apps…",
@@ -114,7 +139,7 @@ fun AppsScreen(nav: NavHostController) {
                     },
                     trailingIcon = if (query.isNotEmpty()) {
                         {
-                            IconButton(onClick = { vm.setQuery("") }) {
+                            IconButton(onClick = { onQueryChange("") }) {
                                 Icon(
                                     imageVector = Icons.Filled.Close,
                                     contentDescription = "Clear search",
@@ -194,14 +219,14 @@ fun AppsScreen(nav: NavHostController) {
         },
         bottomBar = {
             AppsBottomNav(
-                onStatus = { nav.navigate("status") },
+                onStatus = onNavStatus,
                 onApps = { /* already here */ },
-                onBroker = { nav.navigate("broker") },
-                onAccess = { nav.navigate("permissions") },
+                onBroker = onNavBroker,
+                onAccess = onNavPermissions,
             )
         },
     ) { innerPadding ->
-        if (allRows.isEmpty()) {
+        if (rows.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -225,7 +250,7 @@ fun AppsScreen(nav: NavHostController) {
                     AppRowItem(
                         row = row,
                         icon = icons[row.pkg],
-                        onToggle = { on -> vm.setEnabled(row.pkg, on) },
+                        onToggle = { on -> onToggle(row.pkg, on) },
                     )
                 }
                 item { Spacer(Modifier.height(8.dp)) }
@@ -365,3 +390,42 @@ private fun navItemColors() = NavigationBarItemDefaults.colors(
     unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
     unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
 )
+
+@Preview(showBackground = true, name = "Apps · Populated")
+@Composable
+private fun AppsPopulatedPreview() {
+    NotifyBridgeTheme {
+        AppsContent(
+            rows = listOf(
+                AppRow("Signal", "org.thoughtcrime.securesms", true),
+                AppRow("Gmail", "com.google.android.gm", false),
+                AppRow("Slack", "com.Slack", true),
+                AppRow("WhatsApp", "com.whatsapp", false),
+            ),
+            query = "",
+            icons = emptyMap(),
+            onQueryChange = {},
+            onToggle = { _, _ -> },
+            onNavStatus = {},
+            onNavBroker = {},
+            onNavPermissions = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Apps · Loading/empty")
+@Composable
+private fun AppsEmptyPreview() {
+    NotifyBridgeTheme {
+        AppsContent(
+            rows = emptyList(),
+            query = "",
+            icons = emptyMap(),
+            onQueryChange = {},
+            onToggle = { _, _ -> },
+            onNavStatus = {},
+            onNavBroker = {},
+            onNavPermissions = {},
+        )
+    }
+}
