@@ -67,16 +67,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.TlsMode
 import com.nyasa.notifybridge.service.MqttForegroundService
 import com.nyasa.notifybridge.ui.theme.Amber
+import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrokerScreen(nav: NavHostController) {
     val vm: BrokerViewModel = hiltViewModel()
@@ -121,6 +123,48 @@ fun BrokerScreen(nav: NavHostController) {
         }
     }
 
+    BrokerContent(
+        config = config,
+        testResult = testResult,
+        saving = saving,
+        onHostChange = vm::updateHost,
+        onPortChange = vm::updatePort,
+        onDeviceNameChange = vm::updateDeviceName,
+        onUsernameChange = vm::updateUsername,
+        onPasswordChange = vm::updatePassword,
+        onTlsModeChange = vm::updateTlsMode,
+        onPickCertFile = {
+            filePicker.launch(arrayOf("application/x-pem-file", "text/plain"))
+        },
+        onTest = vm::test,
+        onSave = vm::save,
+        onBack = { nav.popBackStack() },
+        onNavStatus = { nav.navigate("status") },
+        onNavApps = { nav.navigate("apps") },
+        onNavPermissions = { nav.navigate("permissions") },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BrokerContent(
+    config: BrokerConfig,
+    testResult: String?,
+    saving: Boolean,
+    onHostChange: (String) -> Unit,
+    onPortChange: (String) -> Unit,
+    onDeviceNameChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onTlsModeChange: (TlsMode) -> Unit,
+    onPickCertFile: () -> Unit,
+    onTest: () -> Unit,
+    onSave: () -> Unit,
+    onBack: () -> Unit,
+    onNavStatus: () -> Unit,
+    onNavApps: () -> Unit,
+    onNavPermissions: () -> Unit,
+) {
     var passwordVisible by remember { mutableStateOf(false) }
     val tlsEnabled = config.tlsMode != TlsMode.OFF
 
@@ -134,7 +178,7 @@ fun BrokerScreen(nav: NavHostController) {
                     .padding(horizontal = 8.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { nav.popBackStack() }) {
+                IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
                         contentDescription = "Back",
@@ -185,7 +229,7 @@ fun BrokerScreen(nav: NavHostController) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     OutlinedButton(
-                        onClick = { vm.test() },
+                        onClick = onTest,
                         modifier = Modifier.weight(1f),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
@@ -195,7 +239,7 @@ fun BrokerScreen(nav: NavHostController) {
                         Text("Test connection")
                     }
                     Button(
-                        onClick = { vm.save() },
+                        onClick = onSave,
                         modifier = Modifier.weight(1f),
                         enabled = isValid(config) && !saving,
                         colors = ButtonDefaults.buttonColors(
@@ -208,10 +252,10 @@ fun BrokerScreen(nav: NavHostController) {
 
                 // ── Bottom navigation ────────────────────────────────────────
                 BrokerBottomNav(
-                    onStatus = { nav.navigate("status") },
-                    onApps = { nav.navigate("apps") },
+                    onStatus = onNavStatus,
+                    onApps = onNavApps,
                     onBroker = { /* already here */ },
-                    onAccess = { nav.navigate("permissions") },
+                    onAccess = onNavPermissions,
                 )
             }
         },
@@ -230,7 +274,7 @@ fun BrokerScreen(nav: NavHostController) {
                 MonoTextField(
                     label = "Host",
                     value = config.host,
-                    onValueChange = vm::updateHost,
+                    onValueChange = onHostChange,
                     placeholder = "192.168.1.10",
                     keyboardType = KeyboardType.Uri,
                 )
@@ -238,7 +282,7 @@ fun BrokerScreen(nav: NavHostController) {
                 MonoTextField(
                     label = "Port",
                     value = if (config.port == 0) "" else config.port.toString(),
-                    onValueChange = vm::updatePort,
+                    onValueChange = onPortChange,
                     placeholder = "1883",
                     keyboardType = KeyboardType.Number,
                 )
@@ -246,7 +290,7 @@ fun BrokerScreen(nav: NavHostController) {
                 MonoTextField(
                     label = "Device name",
                     value = config.deviceName,
-                    onValueChange = vm::updateDeviceName,
+                    onValueChange = onDeviceNameChange,
                     placeholder = "phone",
                     supportingText = "used in the MQTT topic and Home Assistant entity",
                 )
@@ -257,7 +301,7 @@ fun BrokerScreen(nav: NavHostController) {
                 MonoTextField(
                     label = "Username (optional)",
                     value = config.username ?: "",
-                    onValueChange = vm::updateUsername,
+                    onValueChange = onUsernameChange,
                     leadingIcon = {
                         Icon(Icons.Filled.Lock, contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
@@ -267,7 +311,7 @@ fun BrokerScreen(nav: NavHostController) {
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = config.password ?: "",
-                    onValueChange = vm::updatePassword,
+                    onValueChange = onPasswordChange,
                     label = { Text("Password (optional)", fontFamily = FontFamily.Monospace) },
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
@@ -317,7 +361,7 @@ fun BrokerScreen(nav: NavHostController) {
                     Switch(
                         checked = tlsEnabled,
                         onCheckedChange = { on ->
-                            vm.updateTlsMode(if (on) TlsMode.SYSTEM_CA else TlsMode.OFF)
+                            onTlsModeChange(if (on) TlsMode.SYSTEM_CA else TlsMode.OFF)
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Teal,
@@ -345,7 +389,7 @@ fun BrokerScreen(nav: NavHostController) {
                         // System CA — selectable
                         val systemCaSelected = config.tlsMode == TlsMode.SYSTEM_CA
                         Button(
-                            onClick = { vm.updateTlsMode(TlsMode.SYSTEM_CA) },
+                            onClick = { onTlsModeChange(TlsMode.SYSTEM_CA) },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (systemCaSelected)
@@ -402,9 +446,7 @@ fun BrokerScreen(nav: NavHostController) {
                         )
                         // File picker button — only shown when PINNED active (unreachable now)
                         Spacer(Modifier.height(4.dp))
-                        TextButton(onClick = {
-                            filePicker.launch(arrayOf("application/x-pem-file", "text/plain"))
-                        }) {
+                        TextButton(onClick = onPickCertFile) {
                             Text("Select CA/cert file")
                         }
                     }
@@ -551,3 +593,58 @@ private fun navItemColors() = NavigationBarItemDefaults.colors(
     unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
     unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
 )
+
+@Preview(showBackground = true, name = "Broker · Empty")
+@Composable
+private fun BrokerEmptyPreview() {
+    NotifyBridgeTheme {
+        BrokerContent(
+            config = BrokerConfig(),
+            testResult = null,
+            saving = false,
+            onHostChange = {},
+            onPortChange = {},
+            onDeviceNameChange = {},
+            onUsernameChange = {},
+            onPasswordChange = {},
+            onTlsModeChange = {},
+            onPickCertFile = {},
+            onTest = {},
+            onSave = {},
+            onBack = {},
+            onNavStatus = {},
+            onNavApps = {},
+            onNavPermissions = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Broker · Filled + TLS + connected")
+@Composable
+private fun BrokerFilledPreview() {
+    NotifyBridgeTheme {
+        BrokerContent(
+            config = BrokerConfig(
+                host = "192.168.1.10",
+                port = 1883,
+                deviceName = "phone",
+                tlsMode = TlsMode.SYSTEM_CA,
+            ),
+            testResult = "Connected",
+            saving = false,
+            onHostChange = {},
+            onPortChange = {},
+            onDeviceNameChange = {},
+            onUsernameChange = {},
+            onPasswordChange = {},
+            onTlsModeChange = {},
+            onPickCertFile = {},
+            onTest = {},
+            onSave = {},
+            onBack = {},
+            onNavStatus = {},
+            onNavApps = {},
+            onNavPermissions = {},
+        )
+    }
+}
