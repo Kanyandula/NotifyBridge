@@ -6,7 +6,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 
 @Composable
 fun LockedScreen(onUnlock: () -> Unit) {
@@ -19,5 +21,13 @@ fun LockedScreen(onUnlock: () -> Unit) {
         Text("Unlock to continue")
         Spacer(Modifier.height(24.dp))
         Button(onClick = onUnlock) { Text("Unlock") }
+    }
+}
+
+@Preview(showBackground = true, name = "Locked")
+@Composable
+private fun LockedScreenPreview() {
+    NotifyBridgeTheme {
+        LockedScreen(onUnlock = {})
     }
 }
