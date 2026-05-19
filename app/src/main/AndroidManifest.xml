@@ -16,6 +16,19 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Android 11+ (API 30+) package visibility: without this, the allow-list
+         screen's pm.queryIntentActivities(ACTION_MAIN/CATEGORY_LAUNCHER) is
+         filtered to a few force-visible system apps, so the user cannot see or
+         allow-list their own apps and nothing gets forwarded. Scoped to
+         launchable apps (matches AppsViewModel's query) rather than the broad
+         QUERY_ALL_PACKAGES, which Play policy restricts. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".NotifyBridgeApp"
         android:allowBackup="false"

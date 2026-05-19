@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 // ── Pure logic (tested verbatim) ────────────────────────────────────────────
@@ -30,13 +29,7 @@ class BrokerViewModel @Inject constructor(
     private val testConnection: TestConnectionUseCase,
 ) : ViewModel() {
 
-    // Seed synchronously at construction. An async seed (viewModelScope.launch
-    // { _config.value = settings.brokerConfig.first() }) races the bound
-    // TextFields: a delayed emission overwrites in-progress user edits, so a
-    // typed device name silently reverts to the "phone" default (§3.4). A
-    // single DataStore first() read is fast (same pattern as MainActivity's
-    // launch-time gate); doing it here removes the clobber window entirely.
-    private val _config = MutableStateFlow(runBlocking { settings.brokerConfig.first() })
+    private val _config = MutableStateFlow(BrokerConfig())
     val config: StateFlow<BrokerConfig> = _config.asStateFlow()
 
     /** Null = no result yet; non-null = "Connected" or "Failed" */
@@ -51,15 +44,35 @@ class BrokerViewModel @Inject constructor(
     private val _saveSuccess = MutableStateFlow(false)
     val saveSuccess: StateFlow<Boolean> = _saveSuccess.asStateFlow()
 
+    /** Set once the user touches any field; gates the async seed (§3.4). */
+    private var userEdited = false
+
+    init {
+        // Seed the persisted config off the main thread (no runBlocking on the
+        // UI thread). If the user already started editing before DataStore
+        // emits, keep their in-progress edits instead of overwriting them.
+        // This coroutine and every updateX run on Dispatchers.Main, so the
+        // userEdited flag needs no synchronization.
+        viewModelScope.launch {
+            val persisted = settings.brokerConfig.first()
+            if (!userEdited) _config.value = persisted
+        }
+    }
+
     // ── Field update functions ───────────────────────────────────────────────
 
-    fun updateHost(v: String) = _config.update { it.copy(host = v) }
-    fun updatePort(v: String) = _config.update { it.copy(port = v.toIntOrNull() ?: 0) }
-    fun updateDeviceName(v: String) = _config.update { it.copy(deviceName = v) }
-    fun updateUsername(v: String) = _config.update { it.copy(username = v.ifBlank { null }) }
-    fun updatePassword(v: String) = _config.update { it.copy(password = v.ifBlank { null }) }
-    fun updateTlsMode(v: TlsMode) = _config.update { it.copy(tlsMode = v) }
-    fun updatePinnedCertPem(v: String?) = _config.update { it.copy(pinnedCertPem = v) }
+    private fun edit(transform: (BrokerConfig) -> BrokerConfig) {
+        userEdited = true
+        _config.update(transform)
+    }
+
+    fun updateHost(v: String) = edit { it.copy(host = v) }
+    fun updatePort(v: String) = edit { it.copy(port = v.toIntOrNull() ?: 0) }
+    fun updateDeviceName(v: String) = edit { it.copy(deviceName = v) }
+    fun updateUsername(v: String) = edit { it.copy(username = v.ifBlank { null }) }
+    fun updatePassword(v: String) = edit { it.copy(password = v.ifBlank { null }) }
+    fun updateTlsMode(v: TlsMode) = edit { it.copy(tlsMode = v) }
+    fun updatePinnedCertPem(v: String?) = edit { it.copy(pinnedCertPem = v) }
 
     // ── Actions ──────────────────────────────────────────────────────────────
 

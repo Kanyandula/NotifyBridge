@@ -20,11 +20,10 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Regression: the Broker form is bound to [BrokerViewModel.config]; if the
- * persisted config is seeded asynchronously, a delayed emission overwrites the
- * user's in-progress edits (device name silently reverts to the "phone"
- * default). The seed must be applied synchronously at construction so the
- * StateFlow is the persisted value immediately — no async clobber window.
+ * Regression (§3.4): the Broker form is bound to [BrokerViewModel.config]. The
+ * persisted config is seeded off the main thread, so it must (a) end up applied
+ * once DataStore emits, and (b) NOT clobber edits the user made before the seed
+ * arrived (typed device name silently reverting to the "phone" default).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BrokerSeedTest {
@@ -39,21 +38,46 @@ class BrokerSeedTest {
         override suspend fun setAppLock(prefs: AppLockPrefs) {}
     }
 
+    private val persisted = BrokerConfig(
+        host = "h", port = 8883, deviceName = "pixel7", tlsMode = TlsMode.SYSTEM_CA,
+    )
+
     @Before fun setUp() = Dispatchers.setMain(main)
     @After fun tearDown() = Dispatchers.resetMain()
 
-    @Test fun config_is_persisted_value_synchronously_at_construction() {
-        val persisted = BrokerConfig(host = "h", port = 8883, deviceName = "pixel7",
-            tlsMode = TlsMode.SYSTEM_CA)
-        val vm = BrokerViewModel(
-            FakeSettings(persisted),
-            TestConnectionUseCase(FakeMqttClientManager()))
-        // Read immediately — no advanceUntilIdle / no Main pump. With an async
-        // seed this is still BrokerConfig() default (deviceName="phone"); the
-        // fix makes it the persisted config right away.
+    private fun newViewModel() = BrokerViewModel(
+        FakeSettings(persisted),
+        TestConnectionUseCase(FakeMqttClientManager()),
+    )
+
+    @Test fun seed_applies_persisted_config() {
+        val vm = newViewModel()
+        main.scheduler.advanceUntilIdle()
         assertEquals("pixel7", vm.config.value.deviceName)
         assertEquals("h", vm.config.value.host)
         assertEquals(8883, vm.config.value.port)
         assertEquals(TlsMode.SYSTEM_CA, vm.config.value.tlsMode)
+    }
+
+    @Test fun seed_does_not_clobber_in_progress_edit() {
+        val vm = newViewModel()
+        // User starts typing before the off-main seed completes.
+        vm.updateDeviceName("my-laptop")
+        main.scheduler.advanceUntilIdle()
+        // The late persisted seed must not overwrite the in-progress edit.
+        assertEquals("my-laptop", vm.config.value.deviceName)
+    }
+
+    @Test fun seed_skipped_when_user_edited_back_to_defaults() {
+        val vm = newViewModel()
+        // User edits a field then clears it back to the default value before
+        // the seed lands. A value-equality guard would mistake this for
+        // "unedited" and clobber it with the persisted (non-default) config;
+        // the userEdited flag must still suppress the seed.
+        vm.updateHost("temp")
+        vm.updateHost("")
+        main.scheduler.advanceUntilIdle()
+        assertEquals("", vm.config.value.host)
+        assertEquals("phone", vm.config.value.deviceName)
     }
 }

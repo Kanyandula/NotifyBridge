@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -148,7 +148,7 @@ private fun OnboardingContent(
             title = "Grant notification access",
             description = "Required to read notifications. This opens the Android system settings menu.",
             buttonLabel = "Grant",
-            buttonIcon = { Icon(Icons.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp)) },
+            buttonIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp)) },
             isActive = step1Active,
             isEnabled = step1Active,
             onClick = onGrantAccess,
