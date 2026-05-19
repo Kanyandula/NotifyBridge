@@ -133,6 +133,26 @@ reflects "notification access lost" and publishing stops.
   service draining on connect and on every enqueue — the periodic job exists
   solely to recover if the service was killed and not yet restarted.
 
+> **Correction (post-impl, remediation J):** `attemptCount` is recorded
+> per-row but **does not drive a per-row backoff**; it's incremented on
+> publish failure for diagnostics only. Redelivery is *connection-level*:
+> `DrainOutboxUseCase` stops on first failure to preserve FIFO order, and
+> the next drain is triggered by the HiveMQ auto-reconnect backoff plus the
+> three drain triggers (enqueue, connect, 15-min worker). A row whose
+> publish deterministically fails head-of-line-blocks newer items until the
+> 7-day TTL/5,000-row cap evicts it — accepted v1 residual.
+>
+> **Correction (post-impl, remediation I):** The three drain triggers
+> (worker, FGS `onCreate`, FGS `onStartCommand`) are serialised by a
+> `Mutex` inside the `@Singleton`-scoped `DrainOutboxUseCase`. Without it,
+> concurrent triggers `nextBatch` overlapping rows and double-publish
+> before `markPublished` deletes them, producing duplicate QoS1 deliveries.
+>
+> **Correction (post-impl, remediation H):** `pruneExpired` runs as a
+> single Room `@Transaction` (`OutboxDao.prune`) so a concurrent enqueue or
+> `markPublished` can't observe a half-pruned state and `trimToMax`'s
+> subquery sees a consistent table.
+
 ### 3.3 Transport — `MqttClientManager` + `MqttForegroundService`
 
 `MqttClientManager` wraps the **HiveMQ MQTT client** behind a domain
@@ -307,7 +327,7 @@ HA: discovery sensor updates from state/attributes topic;
 | Failure | Behaviour |
 |---|---|
 | Broker unreachable | Backoff reconnect; items stay in outbox; UI shows disconnected; LWT marks HA entity offline. |
-| Publish not acked | Row retained, `attemptCount++`, backoff retry. |
+| Publish not acked | Row retained, `attemptCount++`, backoff retry. <br/>**Correction (post-impl, remediation J):** `attemptCount` is incremented for diagnostics only; the drain stops on first failure to preserve FIFO order and resumes when the next drain trigger (enqueue / connect / 15-min worker) fires after HiveMQ's connection-level auto-reconnect backoff. See §3.2. |
 | Outbox growth | 7-day TTL + 5,000-row cap, oldest pruned. |
 | Missing notification extras | Null fields, never throw. |
 | Notification access revoked | UI reflects loss; publishing stops; no crash. |
@@ -319,7 +339,8 @@ HA: discovery sensor updates from state/attributes topic;
 - **Unit:** `NotificationMapper` (body priority chain incl. `MessagingStyle`
   latest-message + sender prefix, big-text fallback, missing-extras);
   dedup/debounce logic (same-key within 500 ms dropped, content change
-  passes, ongoing-unchanged dropped); outbox enqueue/drain/prune/backoff;
+  passes, ongoing-unchanged dropped); outbox enqueue/drain/prune (no
+  per-row backoff — see §3.2 correction J);
   discovery-payload builder; settings repository; app-lock idle-timeout
   state machine (locks after timeout, unlock clears, background re-locks)
   with a fake authenticator.
