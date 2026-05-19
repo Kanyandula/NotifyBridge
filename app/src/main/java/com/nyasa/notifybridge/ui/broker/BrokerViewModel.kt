@@ -15,13 +15,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// ── Pure logic (tested verbatim) ────────────────────────────────────────────
 fun isValid(c: BrokerConfig) = c.host.isNotBlank() && c.port in 1..65535
 
 fun certError(mode: TlsMode, pem: String?): String? =
     if (mode == TlsMode.PINNED && pem.isNullOrBlank()) "Select a CA/cert file" else null
 
-// ── ViewModel ────────────────────────────────────────────────────────────────
 
 @HiltViewModel
 class BrokerViewModel @Inject constructor(
@@ -59,7 +57,6 @@ class BrokerViewModel @Inject constructor(
         }
     }
 
-    // ── Field update functions ───────────────────────────────────────────────
 
     private fun edit(transform: (BrokerConfig) -> BrokerConfig) {
         userEdited = true
@@ -74,7 +71,6 @@ class BrokerViewModel @Inject constructor(
     fun updateTlsMode(v: TlsMode) = edit { it.copy(tlsMode = v) }
     fun updatePinnedCertPem(v: String?) = edit { it.copy(pinnedCertPem = v) }
 
-    // ── Actions ──────────────────────────────────────────────────────────────
 
     fun test() {
         viewModelScope.launch {

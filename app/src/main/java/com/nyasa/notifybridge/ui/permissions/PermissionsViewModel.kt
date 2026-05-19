@@ -17,11 +17,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// ── Pure logic (tested) ──────────────────────────────────────────────────────
 enum class PermPill { GRANTED, ACTION_NEEDED }
 fun permPill(granted: Boolean) = if (granted) PermPill.GRANTED else PermPill.ACTION_NEEDED
 
-// ── ViewModel ────────────────────────────────────────────────────────────────
 @HiltViewModel
 class PermissionsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -57,7 +55,6 @@ class PermissionsViewModel @Inject constructor(
         settings.setAppLock(appLock.value.copy(redactBody = redact))
     }
 
-    // ── Private helpers ──────────────────────────────────────────────────────
     private fun readNotifAccess(): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(context)
             .contains(context.packageName)

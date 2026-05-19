@@ -72,7 +72,6 @@ import com.nyasa.notifybridge.ui.theme.ErrorRed
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 
-// ── Idle-timeout options ─────────────────────────────────────────────────────
 private data class TimeoutOption(val label: String, val ms: Long)
 
 private val timeoutOptions = listOf(
@@ -86,7 +85,6 @@ private val timeoutOptions = listOf(
 private fun labelForMs(ms: Long): String =
     timeoutOptions.firstOrNull { it.ms == ms }?.label ?: "${ms / 1000}s"
 
-// ── Screen ───────────────────────────────────────────────────────────────────
 @Composable
 fun PermissionsScreen(nav: NavHostController) {
     val vm: PermissionsViewModel = hiltViewModel()
@@ -162,7 +160,6 @@ private fun PermissionsContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         ) {
-            // ── Header ───────────────────────────────────────────────────────
             Text(
                 text = "Permissions",
                 style = MaterialTheme.typography.titleLarge,
@@ -172,7 +169,6 @@ private fun PermissionsContent(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ── Card 1: Notification access ──────────────────────────────────
             PermissionCard(
                 icon = Icons.Filled.Notifications,
                 title = "Notification access",
@@ -184,7 +180,6 @@ private fun PermissionsContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Card 2: Battery optimization ─────────────────────────────────
             // Once exempt, ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS is a no-op
             // (system finish()-es the activity without UI), so the button would
             // look broken. Hide it when already granted; user revokes via system
@@ -201,7 +196,6 @@ private fun PermissionsContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Card 3: Run at startup (informational, no action) ────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -247,7 +241,6 @@ private fun PermissionsContent(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ── App lock card ────────────────────────────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -346,7 +339,6 @@ private fun PermissionsContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── OTP / bank reassurance card ──────────────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -381,7 +373,6 @@ private fun PermissionsContent(
     }
 }
 
-// ── Reusable permission card ─────────────────────────────────────────────────
 @Composable
 private fun PermissionCard(
     icon: ImageVector,
@@ -453,7 +444,6 @@ private fun PermissionCard(
     }
 }
 
-// ── Pill chip ────────────────────────────────────────────────────────────────
 @Composable
 private fun PillChip(label: String, color: androidx.compose.ui.graphics.Color) {
     Box(
@@ -471,7 +461,6 @@ private fun PillChip(label: String, color: androidx.compose.ui.graphics.Color) {
     }
 }
 
-// ── Idle timeout dropdown ────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IdleTimeoutDropdown(currentMs: Long, onSelect: (Long) -> Unit) {
@@ -518,7 +507,6 @@ private fun IdleTimeoutDropdown(currentMs: Long, onSelect: (Long) -> Unit) {
     }
 }
 
-// ── Bottom navigation ────────────────────────────────────────────────────────
 @Composable
 private fun PermissionsBottomNav(
     onStatus: () -> Unit,

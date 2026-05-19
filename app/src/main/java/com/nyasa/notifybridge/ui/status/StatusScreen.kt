@@ -134,7 +134,6 @@ private fun StatusContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         ) {
-            // ── Header ──────────────────────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -193,7 +192,6 @@ private fun StatusContent(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ── Broker card ─────────────────────────────────────────────────
             SectionCard(title = "BROKER") {
                 Text(
                     text = "${broker.host}:${broker.port}",
@@ -228,7 +226,6 @@ private fun StatusContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Outbox card ─────────────────────────────────────────────────
             SectionCard(title = "OUTBOX") {
                 Text(
                     text = "${state.outboxDepth}",
@@ -253,7 +250,6 @@ private fun StatusContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Forwarding card ─────────────────────────────────────────────
             SectionCard(title = "FORWARDING") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -280,7 +276,6 @@ private fun StatusContent(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ── Recent Activity ─────────────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

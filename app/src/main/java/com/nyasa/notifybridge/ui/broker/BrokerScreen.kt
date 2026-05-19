@@ -90,7 +90,6 @@ fun BrokerScreen(nav: NavHostController) {
     val context = LocalContext.current
     val view = LocalView.current
 
-    // ── FLAG_SECURE ──────────────────────────────────────────────────────────
     DisposableEffect(Unit) {
         val activity = view.context as? Activity
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -99,7 +98,6 @@ fun BrokerScreen(nav: NavHostController) {
         }
     }
 
-    // ── Save-success one-shot: start service + navigate back ─────────────────
     LaunchedEffect(saveSuccess) {
         if (saveSuccess) {
             context.startForegroundService(
@@ -204,7 +202,6 @@ private fun BrokerContent(
         },
         bottomBar = {
             Column {
-                // ── Test result line ─────────────────────────────────────────
                 if (testResult != null) {
                     val resultColor = when (testResult) {
                         "Connected" -> Teal
@@ -221,7 +218,6 @@ private fun BrokerContent(
                     )
                 }
 
-                // ── Action buttons ───────────────────────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -250,7 +246,6 @@ private fun BrokerContent(
                     }
                 }
 
-                // ── Bottom navigation ────────────────────────────────────────
                 BrokerBottomNav(
                     onStatus = onNavStatus,
                     onApps = onNavApps,
@@ -269,7 +264,6 @@ private fun BrokerContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
 
-            // ── CONNECTION ───────────────────────────────────────────────────
             FormSection(title = "CONNECTION") {
                 MonoTextField(
                     label = "Host",
@@ -296,7 +290,6 @@ private fun BrokerContent(
                 )
             }
 
-            // ── AUTHENTICATION ───────────────────────────────────────────────
             FormSection(title = "AUTHENTICATION") {
                 MonoTextField(
                     label = "Username (optional)",
@@ -346,7 +339,6 @@ private fun BrokerContent(
                 )
             }
 
-            // ── TLS ──────────────────────────────────────────────────────────
             FormSection(title = "TLS") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -485,7 +477,6 @@ private fun BrokerContent(
     }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 @Composable
 private fun FormSection(title: String, content: @Composable () -> Unit) {
