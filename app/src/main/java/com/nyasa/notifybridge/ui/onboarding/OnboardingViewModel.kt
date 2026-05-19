@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.nyasa.notifybridge.domain.repo.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,10 +32,18 @@ class OnboardingViewModel @Inject constructor(
     private val settings: SettingsRepository,
 ) : ViewModel() {
 
+    // The notif-access check below reads a non-flow system source, so the
+    // combine only re-evaluates it when one of the source flows emits. When
+    // the user returns from system Settings they haven't touched broker/apps —
+    // without this trigger activeStep would stay GRANT_ACCESS. The screen
+    // bumps refresh() on RESUMED to force re-evaluation.
+    private val refreshTrigger = MutableStateFlow(0)
+
     val uiState: StateFlow<OnboardingUiState> = combine(
         settings.brokerConfig,
         settings.allowList,
-    ) { brokerConfig, allowList ->
+        refreshTrigger,
+    ) { brokerConfig, allowList, _ ->
         val notifAccess = NotificationManagerCompat
             .getEnabledListenerPackages(context)
             .contains(context.packageName)
@@ -48,4 +57,6 @@ class OnboardingViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = onboardingState(false, false, false),
     )
+
+    fun refresh() { refreshTrigger.value++ }
 }

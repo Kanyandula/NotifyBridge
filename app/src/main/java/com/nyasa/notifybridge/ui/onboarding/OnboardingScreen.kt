@@ -43,6 +43,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 
@@ -51,6 +54,16 @@ fun OnboardingScreen(nav: NavHostController) {
     val vm: OnboardingViewModel = hiltViewModel()
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    // Re-evaluate onboarding state when the screen resumes — the user may have
+    // granted notification access in system Settings and returned (the
+    // notif-access check is a non-flow read inside the VM's combine).
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            vm.refresh()
+        }
+    }
 
     LaunchedEffect(state.activeStep) {
         if (state.activeStep == OnboardingStep.DONE) {
