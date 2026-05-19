@@ -20,7 +20,6 @@ fun isValid(c: BrokerConfig) = c.host.isNotBlank() && c.port in 1..65535
 fun certError(mode: TlsMode, pem: String?): String? =
     if (mode == TlsMode.PINNED && pem.isNullOrBlank()) "Select a CA/cert file" else null
 
-
 @HiltViewModel
 class BrokerViewModel @Inject constructor(
     private val settings: SettingsRepository,
@@ -57,7 +56,6 @@ class BrokerViewModel @Inject constructor(
         }
     }
 
-
     private fun edit(transform: (BrokerConfig) -> BrokerConfig) {
         userEdited = true
         _config.update(transform)
@@ -70,7 +68,6 @@ class BrokerViewModel @Inject constructor(
     fun updatePassword(v: String) = edit { it.copy(password = v.ifBlank { null }) }
     fun updateTlsMode(v: TlsMode) = edit { it.copy(tlsMode = v) }
     fun updatePinnedCertPem(v: String?) = edit { it.copy(pinnedCertPem = v) }
-
 
     fun test() {
         viewModelScope.launch {

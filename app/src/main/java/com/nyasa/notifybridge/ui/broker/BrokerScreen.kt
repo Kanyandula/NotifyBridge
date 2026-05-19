@@ -478,7 +478,6 @@ private fun BrokerContent(
     }
 }
 
-
 @Composable
 private fun FormSection(title: String, content: @Composable () -> Unit) {
     Card(

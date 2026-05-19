@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-
 data class AppRow(val label: String, val pkg: String, val enabled: Boolean)
 
 fun filterApps(all: List<AppRow>, q: String) =
@@ -31,7 +30,6 @@ fun filterApps(all: List<AppRow>, q: String) =
 
 fun toggle(current: Set<String>, pkg: String, on: Boolean) =
     if (on) current + pkg else current - pkg
-
 
 @HiltViewModel
 class AppsViewModel @Inject constructor(
