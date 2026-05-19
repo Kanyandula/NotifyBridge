@@ -90,6 +90,7 @@ fun BrokerScreen(nav: NavHostController) {
     val context = LocalContext.current
     val view = LocalView.current
 
+    // FLAG_SECURE: prevent screen capture
     DisposableEffect(Unit) {
         val activity = view.context as? Activity
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
