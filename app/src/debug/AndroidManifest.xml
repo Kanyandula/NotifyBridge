@@ -7,14 +7,20 @@
       is @AndroidEntryPoint + START_STICKY (Task 13) and BootReceiver auto-starts
       it (Task 15); the OS recreates the service into the HiltTestApplication
       process — which has no app Hilt component for non-@HiltAndroidTest tests —
-      crashing the instrumentation before any test runs. The service/worker/boot
-      path is verified MANUALLY in Task 25 (not via instrumented tests), so
-      removing these components from the debug/test APK loses no intended
-      coverage. Exercise the live bridge with a release build (see Task 25).
+      crashing the instrumentation before any test runs. That live path is
+      verified MANUALLY in Task 25 (not via instrumented tests), so removing
+      these two components from the debug/test APK loses no intended coverage.
+
+      NotifListenerService is intentionally NOT removed: it is bound by the OS
+      only AFTER the user grants notification-listener access, which never
+      happens in a non-@HiltAndroidTest instrumented run, so it does not hit
+      the Hilt-test crash path above. Keeping it in the debug APK is required
+      for Settings → Notification access to list the app at all — without it
+      the onboarding Step 1 deep-link lands on a picker that does not include
+      NotifyBridge and the user cannot proceed.
     -->
     <application>
         <service android:name=".service.MqttForegroundService" tools:node="remove" />
-        <service android:name=".service.NotifListenerService" tools:node="remove" />
         <receiver android:name=".service.BootReceiver" tools:node="remove" />
     </application>
 </manifest>
