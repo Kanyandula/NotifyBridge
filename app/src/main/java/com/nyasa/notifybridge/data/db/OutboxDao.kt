@@ -3,6 +3,7 @@ package com.nyasa.notifybridge.data.db
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -19,4 +20,15 @@ interface OutboxDao {
     suspend fun deleteOlderThan(cutoff: Long)
     @Query("DELETE FROM outbox WHERE id NOT IN (SELECT id FROM outbox ORDER BY id DESC LIMIT :max)")
     suspend fun trimToMax(max: Int)
+
+    /**
+     * TTL + cap prune as one transaction so a concurrent enqueue / `markPublished`
+     * can't observe a half-pruned state (and `trimToMax`'s subquery sees a
+     * consistent table).
+     */
+    @Transaction
+    suspend fun prune(cutoff: Long, max: Int) {
+        deleteOlderThan(cutoff)
+        trimToMax(max)
+    }
 }
