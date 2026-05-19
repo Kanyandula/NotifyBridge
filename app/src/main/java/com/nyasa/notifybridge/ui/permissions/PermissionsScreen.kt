@@ -185,6 +185,10 @@ private fun PermissionsContent(
             Spacer(modifier = Modifier.height(12.dp))
 
             // ── Card 2: Battery optimization ─────────────────────────────────
+            // Once exempt, ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS is a no-op
+            // (system finish()-es the activity without UI), so the button would
+            // look broken. Hide it when already granted; user revokes via system
+            // Settings → Battery if they need to.
             PermissionCard(
                 icon = Icons.Filled.BatteryAlert,
                 title = "Battery optimization",
@@ -192,6 +196,7 @@ private fun PermissionsContent(
                 pill = permPill(batteryExempt),
                 actionLabel = "Request exemption",
                 onAction = onRequestBatteryExemption,
+                hideActionWhenGranted = true,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -385,8 +390,10 @@ private fun PermissionCard(
     pill: PermPill,
     actionLabel: String,
     onAction: () -> Unit,
+    hideActionWhenGranted: Boolean = false,
 ) {
     val pillColor = if (pill == PermPill.GRANTED) Teal else Amber
+    val showAction = !(hideActionWhenGranted && pill == PermPill.GRANTED)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -425,20 +432,22 @@ private fun PermissionCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onAction,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
-                elevation = ButtonDefaults.buttonElevation(0.dp),
-            ) {
-                Text(
-                    text = actionLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
+            if (showAction) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = onAction,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        contentColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp),
+                ) {
+                    Text(
+                        text = actionLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }
