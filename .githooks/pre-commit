@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "${SKIP_QUALITY_CHECKS:-}" = "1" ]; then
+  echo "Skipping quality checks because SKIP_QUALITY_CHECKS=1."
+  exit 0
+fi
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+if git diff --cached --quiet -- \
+  '*.kt' \
+  '*.kts' \
+  '*.java' \
+  '*.xml' \
+  'gradle.properties' \
+  'gradle/libs.versions.toml'; then
+  echo "No staged Android/Kotlin/build changes; skipping quality checks."
+  exit 0
+fi
+
+echo "Running pre-commit quality checks..."
+./gradlew qualityCheck

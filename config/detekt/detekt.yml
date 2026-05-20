@@ -1,0 +1,26 @@
+config:
+  validation: true
+  warningsAsErrors: false
+
+build:
+  maxIssues: 0
+
+style:
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+    excludePackageStatements: true
+    excludeImportStatements: true
+    excludeCommentStatements: true
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - Composable
+      - Preview
+
+formatting:
+  MaximumLineLength:
+    active: false

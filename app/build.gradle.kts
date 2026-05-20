@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.detekt)
 }
 android {
     namespace = "com.nyasa.notifybridge"
@@ -34,6 +35,14 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     testOptions { unitTests { isIncludeAndroidResources = true } }
+    lint {
+        abortOnError = true
+        warningsAsErrors = true
+        checkDependencies = true
+        baseline = file("lint-baseline.xml")
+        htmlReport = true
+        xmlReport = true
+    }
     packaging {
         resources {
             excludes += setOf(
@@ -56,6 +65,15 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+}
+
+detekt {
+    toolVersion = libs.versions.detekt.get()
+    buildUponDefaultConfig = true
+    allRules = false
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    baseline = rootProject.file("config/detekt/baseline.xml")
+    parallel = true
 }
 
 dependencies {
@@ -99,4 +117,20 @@ dependencies {
     debugImplementation(libs.compose.test.manifest)
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.52")
     kspAndroidTest("com.google.dagger:hilt-compiler:2.52")
+    detektPlugins(libs.detekt.formatting)
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    jvmTarget = "17"
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        sarif.required.set(true)
+        txt.required.set(false)
+    }
+    exclude("**/build/**")
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
+    jvmTarget = "17"
 }
