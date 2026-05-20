@@ -160,7 +160,7 @@ appears automatically after the first publish.
 - The instrumented suite **does not** exercise the live forwarding path
   (FGS / BootReceiver removed from debug APK); that's covered by the device
   checklist below.
-- No CI configured yet — all verification is local.
+- **CI:** [![CI](https://github.com/Kanyandula/NotifyBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Kanyandula/NotifyBridge/actions/workflows/ci.yml) [![Instrumented](https://github.com/Kanyandula/NotifyBridge/actions/workflows/instrumented.yml/badge.svg?branch=main)](https://github.com/Kanyandula/NotifyBridge/actions/workflows/instrumented.yml) — fast lane (build, unit tests, detekt, lint, release assemble) and emulator lane (API 28 google_apis) on every push and PR.
 
 ## Device manual verification checklist
 
