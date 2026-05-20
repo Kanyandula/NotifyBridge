@@ -98,7 +98,6 @@ private fun AppsContent(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Column(modifier = Modifier.statusBarsPadding()) {
-                // ── Title bar ────────────────────────────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -120,7 +119,6 @@ private fun AppsContent(
                     )
                 }
 
-                // ── Search field ─────────────────────────────────────────────
                 OutlinedTextField(
                     value = query,
                     onValueChange = onQueryChange,
@@ -162,7 +160,6 @@ private fun AppsContent(
                         .padding(bottom = 8.dp),
                 )
 
-                // ── "N of M apps forwarding" strip ───────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -184,7 +181,6 @@ private fun AppsContent(
                     )
                 }
 
-                // ── Dismissible "Empty by design" banner ─────────────────────
                 if (!bannerDismissed) {
                     Row(
                         modifier = Modifier
@@ -258,8 +254,6 @@ private fun AppsContent(
         }
     }
 }
-
-// ── App list row ──────────────────────────────────────────────────────────
 
 @Composable
 private fun AppRowItem(
@@ -340,8 +334,6 @@ private fun AppRowItem(
         )
     }
 }
-
-// ── Bottom navigation ─────────────────────────────────────────────────────
 
 @Composable
 private fun AppsBottomNav(
