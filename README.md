@@ -164,6 +164,10 @@ appears automatically after the first publish.
 
 ## Device manual verification checklist
 
+> Prereq: a Mosquitto broker + Home Assistant. For a disposable, local Docker
+> Compose stack that backs these steps, see
+> [`test-rig/README-testing.md`](test-rig/README-testing.md).
+
 1. Install; onboarding shows GRANT_ACCESS active, others gated.
 2. Grant notification access → step 2 unlocks.
 3. Configure broker against a local Mosquitto (TLS OFF) → Test Connection shows success.
