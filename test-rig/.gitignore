@@ -1,0 +1,13 @@
+# Runtime state — keep the directories (via .gitkeep) but ignore contents.
+ha-config/*
+!ha-config/.gitkeep
+mosquitto/data/*
+!mosquitto/data/.gitkeep
+mosquitto/log/*
+!mosquitto/log/.gitkeep
+
+# Local TLS material — generated when you opt into the TLS path.
+mosquitto/config/certs/
+
+# Local-only password files (if you switch off anonymous).
+mosquitto/config/passwd

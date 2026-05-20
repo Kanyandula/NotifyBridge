@@ -1,0 +1,42 @@
+# NotifyBridge end-to-end test rig.
+#
+# Spins up Mosquitto + Home Assistant on the default compose network so the
+# stack is identical on Mac (Docker Desktop) and Linux — no host-mode networking
+# required, since the app uses static MQTT discovery topics, not mDNS.
+#
+# Topology:
+#   phone (Wi-Fi peer)  ──► <host-ip>:1883  ─►  mosquitto
+#                                                 ▲
+#                            homeassistant  ──────┘  (resolves "mosquitto:1883"
+#                                                     over compose-internal DNS)
+#
+# Usage:
+#   cd test-rig && docker compose up -d
+#   docker compose logs -f                # follow logs
+#   docker compose down                   # stop (keep volumes)
+#   docker compose down -v                # stop + drop volumes (full reset)
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: nb-mosquitto
+    ports:
+      - "1883:1883"   # plain MQTT — phone publishes here
+      - "8883:8883"   # TLS MQTT — unused until you enable the TLS stanza in mosquitto.conf
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: nb-homeassistant
+    ports:
+      - "8123:8123"   # HA UI at http://<host-ip>:8123
+    volumes:
+      - ./ha-config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
