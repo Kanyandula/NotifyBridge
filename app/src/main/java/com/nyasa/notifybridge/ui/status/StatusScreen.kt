@@ -1,10 +1,13 @@
 package com.nyasa.notifybridge.ui.status
 
 import android.app.Activity
+import android.graphics.drawable.Drawable
 import android.view.WindowManager
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,14 +38,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +68,8 @@ import com.nyasa.notifybridge.ui.theme.Amber
 import com.nyasa.notifybridge.ui.theme.ErrorRed
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -356,6 +365,7 @@ private fun RecentRow(
     revealed: Boolean,
     onClick: () -> Unit,
 ) {
+    val icon = rememberAppIcon(item.packageName)
     val bodyText = displayBody(item.body, redact = redact, revealed = revealed)
     val timeText = remember(item.postTime) {
         if (item.postTime > 0L)
@@ -377,13 +387,7 @@ private fun RecentRow(
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // App initial badge
-            Spacer(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-            )
+            RecentAppIcon(icon = icon)
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -416,6 +420,47 @@ private fun RecentRow(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun rememberAppIcon(packageName: String): Drawable? {
+    val context = LocalContext.current
+    var icon by remember(packageName) { mutableStateOf<Drawable?>(null) }
+    LaunchedEffect(packageName) {
+        icon = withContext(Dispatchers.IO) {
+            if (packageName.isBlank()) {
+                null
+            } else {
+                runCatching { context.packageManager.getApplicationIcon(packageName) }.getOrNull()
+            }
+        }
+    }
+    return icon
+}
+
+@Composable
+private fun RecentAppIcon(icon: Drawable?) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (icon != null) {
+            Canvas(modifier = Modifier.size(28.dp)) {
+                icon.setBounds(0, 0, size.width.toInt(), size.height.toInt())
+                icon.draw(drawContext.canvas.nativeCanvas)
+            }
+        } else {
+            Icon(
+                imageVector = Icons.Filled.Apps,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
@@ -496,9 +541,30 @@ private fun StatusConnectedPreview() {
                 appLock = AppLockPrefs(redactBody = false),
             ),
             recentItems = listOf(
-                RecentItem(1L, "Signal", "Alice", "Are we still on for 6?", 1_716_000_000_000L),
-                RecentItem(2L, "Gmail", "Invoice #1042", "Your receipt is attached", 1_716_000_300_000L),
-                RecentItem(3L, "Slack", "#deploys", "build green on main", 1_716_000_600_000L),
+                RecentItem(
+                    1L,
+                    "org.thoughtcrime.securesms",
+                    "Signal",
+                    "Alice",
+                    "Are we still on for 6?",
+                    1_716_000_000_000L,
+                ),
+                RecentItem(
+                    2L,
+                    "com.google.android.gm",
+                    "Gmail",
+                    "Invoice #1042",
+                    "Your receipt is attached",
+                    1_716_000_300_000L,
+                ),
+                RecentItem(
+                    3L,
+                    "com.Slack",
+                    "Slack",
+                    "#deploys",
+                    "build green on main",
+                    1_716_000_600_000L,
+                ),
             ),
             revealedIds = emptySet(),
             onRevealRequest = {},
@@ -544,8 +610,22 @@ private fun StatusRedactedPreview() {
                 appLock = AppLockPrefs(redactBody = true),
             ),
             recentItems = listOf(
-                RecentItem(1L, "Bank", "OTP", "Your code is 884213", 1_716_000_000_000L),
-                RecentItem(2L, "Signal", "Bob", "see you then", 1_716_000_300_000L),
+                RecentItem(
+                    1L,
+                    "com.bank",
+                    "Bank",
+                    "OTP",
+                    "Your code is 884213",
+                    1_716_000_000_000L,
+                ),
+                RecentItem(
+                    2L,
+                    "org.thoughtcrime.securesms",
+                    "Signal",
+                    "Bob",
+                    "see you then",
+                    1_716_000_300_000L,
+                ),
             ),
             revealedIds = emptySet(),
             onRevealRequest = {},

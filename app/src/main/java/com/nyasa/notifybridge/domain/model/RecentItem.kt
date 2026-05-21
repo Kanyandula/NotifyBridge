@@ -10,6 +10,7 @@ package com.nyasa.notifybridge.domain.model
  */
 data class RecentItem(
     val id: Long,
+    val packageName: String,
     val app: String,
     val title: String,
     val body: String,

@@ -42,6 +42,11 @@ class MqttForegroundService : Service() {
 
     override fun onStartCommand(i: Intent?, f: Int, id: Int): Int {
         scope.launch { drain() }
+        // Debug: NOT_STICKY so a system kill cannot resurrect this
+        // @AndroidEntryPoint service into the instrumented-test process.
+        // Trade-off: no auto-restart in dev — acceptable, we redeploy.
+        // Release: STICKY so a real-world kill restarts the bridge.
+        // Full rationale in app/src/debug/AndroidManifest.xml.
         return if (BuildConfig.DEBUG) START_NOT_STICKY else START_STICKY
     }
 
