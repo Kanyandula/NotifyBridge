@@ -28,6 +28,8 @@ class NotificationMapperImpl @Inject constructor() : NotificationMapper {
             isClearable = sbn.isClearable,
             tag = sbn.tag,
             id = sbn.id,
+            isGroupSummary =
+                (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0,
         )
     }
 

@@ -2,6 +2,7 @@ package com.nyasa.notifybridge.domain.usecase
 
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
+import com.nyasa.notifybridge.domain.repo.RecentNotificationsRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -11,6 +12,7 @@ import javax.inject.Singleton
 class DrainOutboxUseCase @Inject constructor(
     private val outbox: OutboxRepository,
     private val mqtt: MqttClientManager,
+    private val recent: RecentNotificationsRepository,
 ) {
     // Single-flight guard. Three triggers can fire `invoke` concurrently —
     // OutboxDrainWorker.doWork (periodic), MqttForegroundService.onCreate, and
@@ -26,7 +28,17 @@ class DrainOutboxUseCase @Inject constructor(
             // Stop on first failure — preserves delivery order. Skipping ahead
             // would reorder notifications; the remaining items are retried on
             // the next drain (foreground service / 15-min worker).
-            if (ok) outbox.markPublished(item.id) else { outbox.recordFailure(item.id); break }
+            if (ok) {
+                // recordPublished is best-effort: a Room hiccup here must not
+                // block the outbox from advancing. Failures are swallowed
+                // here (kept pure-JVM in domain); the repo impl can log at
+                // the data layer if/when a logger abstraction lands.
+                runCatching { recent.recordPublished(item) }
+                outbox.markPublished(item.id)
+            } else {
+                outbox.recordFailure(item.id)
+                break
+            }
         }
         runCatching {
             outbox.pruneExpired(

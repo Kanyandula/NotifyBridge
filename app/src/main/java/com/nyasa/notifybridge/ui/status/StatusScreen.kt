@@ -56,6 +56,7 @@ import com.nyasa.notifybridge.applock.BiometricAuthenticator
 import com.nyasa.notifybridge.domain.model.AppLockPrefs
 import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.ConnectionState
+import com.nyasa.notifybridge.domain.model.RecentItem
 import com.nyasa.notifybridge.ui.theme.Amber
 import com.nyasa.notifybridge.ui.theme.ErrorRed
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
@@ -81,7 +82,8 @@ fun StatusScreen(nav: NavHostController) {
         }
     }
 
-    // Per-row reveal state keyed by stable OutboxItem.id
+    // Per-row reveal state keyed by RecentItem.id (the recent_notifications
+    // table's autoIncrement ROWID — monotonic, never reused).
     val revealedRows = remember { mutableStateMapOf<Long, Boolean>() }
 
     StatusContent(
@@ -288,7 +290,7 @@ private fun StatusContent(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = "Last 24h",
+                    text = "Latest 20",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                 )

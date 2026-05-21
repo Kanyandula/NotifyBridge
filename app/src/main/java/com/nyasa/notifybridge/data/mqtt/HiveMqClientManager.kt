@@ -1,5 +1,6 @@
 package com.nyasa.notifybridge.data.mqtt
 
+import android.util.Log
 import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
@@ -98,7 +99,13 @@ class HiveMqClientManager @Inject constructor(
                 .qos(MqttQos.AT_LEAST_ONCE).send().await()
             state.value = ConnectionState.CONNECTED
         } catch (t: Throwable) {
-            state.value = ConnectionState.ERROR
+            // A post-connect publish (status/discovery retain) can throw even
+            // after the socket connected and addConnectedListener emitted
+            // CONNECTED. Only latch ERROR if the underlying client is actually
+            // down — otherwise we'd stamp ERROR over a live session and the UI
+            // would stay stuck even while publish() succeeds.
+            Log.w("HiveMq", "connect() catch fired (clientConnected=${c.state.isConnected})", t)
+            connectExceptionState(c.state.isConnected)?.let { state.value = it }
         }
     }
 
@@ -122,5 +129,13 @@ class HiveMqClientManager @Inject constructor(
         fun requiresPinnedCert(c: BrokerConfig) = c.tlsMode == TlsMode.PINNED
         fun clientId(c: BrokerConfig) =
             "notifybridge-" + c.deviceName.lowercase().replace(Regex("[^a-z0-9]+"), "-")
+
+        /**
+         * Next state when connect() catches an exception. Null means "leave
+         * state alone" — the catch fired but the client is still connected,
+         * so a publish failure should not overwrite the live CONNECTED state.
+         */
+        fun connectExceptionState(clientConnected: Boolean): ConnectionState? =
+            if (clientConnected) null else ConnectionState.ERROR
     }
 }

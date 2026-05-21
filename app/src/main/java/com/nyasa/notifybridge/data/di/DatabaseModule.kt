@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.nyasa.notifybridge.data.db.NotifyBridgeDatabase
+import com.nyasa.notifybridge.data.db.NotifyBridgeMigrations
 import com.nyasa.notifybridge.data.db.OutboxDao
+import com.nyasa.notifybridge.data.db.RecentNotificationDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,8 +22,16 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("n
 object DatabaseModule {
     @Provides @Singleton
     fun db(@ApplicationContext c: Context) =
-        Room.databaseBuilder(c, NotifyBridgeDatabase::class.java, "notifybridge.db").build()
-    @Provides fun dao(db: NotifyBridgeDatabase): OutboxDao = db.outboxDao()
+        Room.databaseBuilder(c, NotifyBridgeDatabase::class.java, "notifybridge.db")
+            .addMigrations(NotifyBridgeMigrations.from1To2)
+            .build()
+    @Provides
+    fun dao(db: NotifyBridgeDatabase): OutboxDao = db.outboxDao()
+
+    @Provides
+    fun recentDao(db: NotifyBridgeDatabase): RecentNotificationDao =
+        db.recentNotificationDao()
+
     @Provides @Singleton
     fun prefs(@ApplicationContext c: Context): DataStore<Preferences> = c.dataStore
 }

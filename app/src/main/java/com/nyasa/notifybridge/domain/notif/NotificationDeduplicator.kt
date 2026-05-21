@@ -10,9 +10,13 @@ class NotificationDeduplicator(private val debounceMs: Long = 500L) {
         val hash = (n.title to n.body).hashCode()
         val prev = last[n.dedupeKey]
         val contentUnchanged = prev != null && prev.contentHash == hash
-        if (contentUnchanged && n.isOngoing) return false
+        if (contentUnchanged && (n.isOngoing || n.category == TRANSPORT_CATEGORY)) return false
         if (contentUnchanged && nowMs - prev!!.atMs < debounceMs) return false
         last[n.dedupeKey] = Seen(hash, nowMs)
         return true
+    }
+
+    private companion object {
+        const val TRANSPORT_CATEGORY = "transport"
     }
 }

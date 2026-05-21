@@ -13,6 +13,7 @@ data class CapturedNotification(
     val isClearable: Boolean,
     val tag: String?,
     val id: Int,
+    val isGroupSummary: Boolean = false,
 ) {
     val dedupeKey: String get() = "$packageName|${tag ?: ""}|$id"
 }

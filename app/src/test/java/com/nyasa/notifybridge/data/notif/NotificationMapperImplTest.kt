@@ -6,6 +6,8 @@ import android.service.notification.StatusBarNotification
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -18,10 +20,15 @@ import org.robolectric.annotation.Config
 class NotificationMapperImplTest {
     private val mapper = NotificationMapperImpl()
 
-    private fun sbn(extras: Bundle, ongoing: Boolean = false): StatusBarNotification {
+    private fun sbn(
+        extras: Bundle,
+        ongoing: Boolean = false,
+        groupSummary: Boolean = false,
+    ): StatusBarNotification {
         val notif = Notification().apply {
             this.extras = extras
             if (ongoing) flags = flags or Notification.FLAG_ONGOING_EVENT
+            if (groupSummary) flags = flags or Notification.FLAG_GROUP_SUMMARY
             category = "msg"
         }
         return mockk(relaxed = true) {
@@ -75,5 +82,23 @@ class NotificationMapperImplTest {
             every { isClearable } returns true
         }
         assertEquals("Alice: latest", mapper.map(sbn, "Msg").body)
+    }
+
+    @Test fun group_summary_flag_is_mapped() {
+        val r = mapper.map(sbn(Bundle(), groupSummary = true), "X")
+        assertTrue(r.isGroupSummary)
+    }
+
+    @Test fun non_summary_maps_isGroupSummary_to_false() {
+        val r = mapper.map(sbn(Bundle()), "X")
+        assertFalse(r.isGroupSummary)
+    }
+
+    // Pins the literal "transport" used in NotifPipeline.TRANSPORT_CATEGORY
+    // to the Android framework constant. NotifPipeline is intentionally
+    // pure-JVM and can't reference Notification.CATEGORY_TRANSPORT directly;
+    // this Robolectric-backed test guards against future framework drift.
+    @Test fun transport_category_literal_matches_android_constant() {
+        assertEquals("transport", Notification.CATEGORY_TRANSPORT)
     }
 }

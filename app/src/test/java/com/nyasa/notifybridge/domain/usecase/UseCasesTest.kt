@@ -4,7 +4,9 @@ import com.nyasa.notifybridge.domain.discovery.DiscoveryPayloadBuilder
 import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.CapturedNotification
 import com.nyasa.notifybridge.domain.model.OutboxItem
+import com.nyasa.notifybridge.domain.model.RecentItem
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
+import com.nyasa.notifybridge.domain.repo.RecentNotificationsRepository
 import com.nyasa.notifybridge.fakes.FakeMqttClientManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -24,6 +26,18 @@ private class MemOutbox : OutboxRepository {
     override fun depth(): Flow<Int> = flowOf(items.size)
 }
 
+private class RecordingRecent(
+    private val fail: Boolean = false,
+) : RecentNotificationsRepository {
+    val published = mutableListOf<OutboxItem>()
+    override val recent: Flow<List<RecentItem>> = flowOf(emptyList())
+
+    override suspend fun recordPublished(item: OutboxItem, publishedAt: Long) {
+        if (fail) error("recent insert failed")
+        published += item
+    }
+}
+
 class UseCasesTest {
     private val n = CapturedNotification("com.x","X","t","b",null,null,null,9L,false,true,null,1)
 
@@ -38,8 +52,10 @@ class UseCasesTest {
         val ob = MemOutbox()
         ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
         val mqtt = FakeMqttClientManager()
-        DrainOutboxUseCase(ob, mqtt)()
+        val recent = RecordingRecent()
+        DrainOutboxUseCase(ob, mqtt, recent)()
         assertEquals("t" to "p", mqtt.published.single().let { it.first to it.second })
+        assertEquals("p", recent.published.single().payload)
         assertEquals(0, ob.items.size)
     }
 
@@ -47,7 +63,9 @@ class UseCasesTest {
         val ob = MemOutbox()
         ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
         val mqtt = FakeMqttClientManager().apply { failPublish = true }
-        DrainOutboxUseCase(ob, mqtt)()
+        val recent = RecordingRecent()
+        DrainOutboxUseCase(ob, mqtt, recent)()
+        assertEquals(emptyList<OutboxItem>(), recent.published)
         assertEquals(1, ob.items.size)
     }
 
@@ -59,9 +77,18 @@ class UseCasesTest {
         ob.enqueue(OutboxItem(topic = "t", payload = "p1", createdAt = 1))
         ob.enqueue(OutboxItem(topic = "t", payload = "p2", createdAt = 2))
         val mqtt = FakeMqttClientManager().apply { failPublish = true }
-        DrainOutboxUseCase(ob, mqtt)()
+        DrainOutboxUseCase(ob, mqtt, RecordingRecent())()
         assertEquals(emptyList<Triple<String,String,Boolean>>(), mqtt.published)
         assertEquals(2, ob.items.size)
+    }
+
+    @Test fun drain_deletes_published_item_when_recent_recording_fails() = runTest {
+        val ob = MemOutbox()
+        ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
+        val mqtt = FakeMqttClientManager()
+        DrainOutboxUseCase(ob, mqtt, RecordingRecent(fail = true))()
+        assertEquals("t" to "p", mqtt.published.single().let { it.first to it.second })
+        assertEquals(0, ob.items.size)
     }
 
     @Test fun test_connection_returns_true_on_connect() = runTest {

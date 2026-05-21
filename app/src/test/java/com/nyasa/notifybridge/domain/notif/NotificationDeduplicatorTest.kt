@@ -6,8 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NotificationDeduplicatorTest {
-    private fun n(body: String?, ongoing: Boolean = false) = CapturedNotification(
-        "com.x", "X", "t", body, null, null, null, 0L, ongoing, true, null, 1)
+    private fun n(
+        body: String?,
+        ongoing: Boolean = false,
+        category: String? = null,
+    ) = CapturedNotification(
+        "com.x", "X", "t", body, null, category, null, 0L, ongoing, true, null, 1)
 
     @Test fun first_post_forwards() {
         assertTrue(NotificationDeduplicator().shouldForward(n("a"), 1000L))
@@ -35,5 +39,17 @@ class NotificationDeduplicatorTest {
         val d = NotificationDeduplicator()
         d.shouldForward(n("50%", ongoing = true), 1000L)
         assertFalse(d.shouldForward(n("50%", ongoing = true), 9000L))
+    }
+
+    @Test fun transport_unchanged_dropped_regardless_of_time() {
+        val d = NotificationDeduplicator()
+        d.shouldForward(n("same track", category = "transport"), 1000L)
+        assertFalse(d.shouldForward(n("same track", category = "transport"), 9000L))
+    }
+
+    @Test fun transport_content_change_forwards() {
+        val d = NotificationDeduplicator()
+        d.shouldForward(n("track one", category = "transport"), 1000L)
+        assertTrue(d.shouldForward(n("track two", category = "transport"), 9000L))
     }
 }
