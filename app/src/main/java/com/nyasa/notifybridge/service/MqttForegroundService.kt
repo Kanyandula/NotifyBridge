@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import com.nyasa.notifybridge.BuildConfig
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import com.nyasa.notifybridge.domain.repo.SettingsRepository
 import com.nyasa.notifybridge.domain.usecase.DrainOutboxUseCase
@@ -41,7 +42,7 @@ class MqttForegroundService : Service() {
 
     override fun onStartCommand(i: Intent?, f: Int, id: Int): Int {
         scope.launch { drain() }
-        return START_STICKY
+        return if (BuildConfig.DEBUG) START_NOT_STICKY else START_STICKY
     }
 
     private fun startAsForeground() {

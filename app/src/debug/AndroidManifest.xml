@@ -2,14 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!--
-      Debug-variant overlay. Instrumented tests run the `debug` app-under-test
-      APK under HiltTestRunner/HiltTestApplication (Task 12). MqttForegroundService
-      is @AndroidEntryPoint + START_STICKY (Task 13) and BootReceiver auto-starts
-      it (Task 15); the OS recreates the service into the HiltTestApplication
-      process — which has no app Hilt component for non-@HiltAndroidTest tests —
-      crashing the instrumentation before any test runs. That live path is
-      verified MANUALLY in Task 25 (not via instrumented tests), so removing
-      these two components from the debug/test APK loses no intended coverage.
+      Debug-variant overlay. Android Studio's normal Run action installs the
+      debug APK, so the live bridge path must keep MqttForegroundService. Only
+      BootReceiver is removed here: instrumented tests run the debug
+      app-under-test under HiltTestRunner/HiltTestApplication, and a boot-time
+      auto-start can recreate AndroidEntryPoint services in that test process
+      before any test has installed a Hilt rule.
 
       NotifListenerService is intentionally NOT removed: it is bound by the OS
       only AFTER the user grants notification-listener access, which never
@@ -20,7 +18,6 @@
       NotifyBridge and the user cannot proceed.
     -->
     <application>
-        <service android:name=".service.MqttForegroundService" tools:node="remove" />
         <receiver android:name=".service.BootReceiver" tools:node="remove" />
     </application>
 </manifest>
