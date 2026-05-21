@@ -82,6 +82,7 @@ class RecentNotificationsRepositoryImplTest {
         val repo = repo()
         repo.recordPublished(outbox(app = "WhatsApp", title = "Alice", body = "hi", postTime = 42L))
         val recent = repo.recent.first().single()
+        assertEquals("com.x", recent.packageName)
         assertEquals("WhatsApp", recent.app)
         assertEquals("Alice", recent.title)
         assertEquals("hi", recent.body)

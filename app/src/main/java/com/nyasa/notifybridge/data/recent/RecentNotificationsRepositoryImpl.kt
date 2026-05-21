@@ -49,6 +49,7 @@ class RecentNotificationsRepositoryImpl @Inject constructor(
     private fun RecentNotificationEntity.toRecentItem() =
         RecentItem(
             id = id,
+            packageName = packageName,
             app = app,
             title = title,
             body = body,
