@@ -28,15 +28,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.navigation.NavHostController
-import com.nyasa.notifybridge.domain.repo.LocalizationRepository
 import com.nyasa.notifybridge.localization.Dictionary
 import com.nyasa.notifybridge.localization.back
 import com.nyasa.notifybridge.localization.localized
@@ -45,20 +44,6 @@ import com.nyasa.notifybridge.localization.systemDefault
 import com.nyasa.notifybridge.localization.title
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.StateFlow
-import javax.inject.Inject
-
-@HiltViewModel
-class LanguageSettingsViewModel @Inject constructor(
-    private val localization: LocalizationRepository,
-) : ViewModel() {
-    val selectedLanguageTag: StateFlow<String?> = localization.selectedLanguageTag
-
-    fun selectLanguage(tag: String?) {
-        localization.setApplicationLanguage(tag)
-    }
-}
 
 @Composable
 fun LanguageSettingsScreen(nav: NavHostController) {
@@ -83,13 +68,8 @@ private fun LanguageSettingsContent(
     onPick: (String?) -> Unit,
     onBack: () -> Unit,
 ) {
-    val options = listOf(
-        LanguageOption(tag = null, nativeName = Dictionary.Language.systemDefault.localized()),
-        LanguageOption(tag = "en", nativeName = "English"),
-        LanguageOption(tag = "fr", nativeName = "Français"),
-        LanguageOption(tag = "es", nativeName = "Español"),
-        LanguageOption(tag = "pt", nativeName = "Português"),
-    )
+    val systemDefaultLabel = Dictionary.Language.systemDefault.localized()
+    val options = remember(systemDefaultLabel) { languageOptions(systemDefaultLabel) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -141,6 +121,14 @@ private fun LanguageSettingsContent(
         }
     }
 }
+
+private fun languageOptions(systemDefaultLabel: String): List<LanguageOption> = listOf(
+    LanguageOption(tag = null, nativeName = systemDefaultLabel),
+    LanguageOption(tag = "en", nativeName = "English"),
+    LanguageOption(tag = "fr", nativeName = "Français"),
+    LanguageOption(tag = "es", nativeName = "Español"),
+    LanguageOption(tag = "pt", nativeName = "Português"),
+)
 
 @Composable
 private fun LanguageRow(

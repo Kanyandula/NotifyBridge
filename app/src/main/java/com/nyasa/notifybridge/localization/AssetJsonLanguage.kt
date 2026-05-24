@@ -1,11 +1,14 @@
 package com.nyasa.notifybridge.localization
 
 import android.content.Context
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * [Language] backed by `assets/localization/<tag>/strings.json`.
@@ -134,13 +137,25 @@ class AssetJsonLanguage(
             isLenient = false
         }
 
-        private fun loadOrEmpty(context: Context, tag: String): Map<String, Map<String, String>> {
+        // Parsed dictionaries are immutable + small (~30 KB each), shared across all
+        // AssetJsonLanguage instances. Caching here means switching the active locale
+        // (or recreating the singleton) does not re-parse JSON.
+        private val parsedCache: MutableMap<String, Map<String, Map<String, String>>> =
+            ConcurrentHashMap()
+
+        private fun loadOrEmpty(context: Context, tag: String): Map<String, Map<String, String>> =
+            parsedCache.getOrPut(tag) { loadFromAssets(context, tag) }
+
+        private fun loadFromAssets(context: Context, tag: String): Map<String, Map<String, String>> {
             val path = "localization/$tag/strings.json"
             return try {
                 val text = context.assets.open(path).bufferedReader().use { it.readText() }
                 parse(text)
-            } catch (_: Exception) {
+            } catch (_: IOException) {
                 Fallbacks.localeNotFound(tag)
+                emptyMap()
+            } catch (e: SerializationException) {
+                Fallbacks.warnOnce("Malformed localization JSON for `$tag`: ${e.message}")
                 emptyMap()
             }
         }

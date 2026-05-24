@@ -78,12 +78,9 @@ class AssetJsonLanguageTest {
         )
     }
 
-    @Test fun fr_locale_loads_french_draft() {
+    @Test fun fr_locale_loads_french_translation() {
         val lang = AssetJsonLanguage("fr", context)
-        // Machine-drafted values are prefixed `[MT-DRAFT] ` to make them easy to filter.
-        assertTrue(
-            lang.resolve("common", "back", emptyMap()).startsWith("[MT-DRAFT]"),
-        )
+        assertEquals("Retour", lang.resolve("common", "back", emptyMap()))
     }
 
     @Test fun unbundled_locale_falls_back_to_en() {

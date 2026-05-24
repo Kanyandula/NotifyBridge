@@ -7,7 +7,6 @@ import androidx.test.core.app.ApplicationProvider
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,10 +39,9 @@ class LocalizationRepositoryImplTest {
 
         assertEquals("fr", repository.selectedLanguageTag.value)
         assertEquals("fr", repository.languageFlow.value.tag)
-        assertTrue(
-            repository.languageFlow.value
-                .resolve("common", "back", emptyMap())
-                .startsWith("[MT-DRAFT]"),
+        assertEquals(
+            "Retour",
+            repository.languageFlow.value.resolve("common", "back", emptyMap()),
         )
     }
 

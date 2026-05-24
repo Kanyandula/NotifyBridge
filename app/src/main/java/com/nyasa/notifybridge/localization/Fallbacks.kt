@@ -1,6 +1,7 @@
 package com.nyasa.notifybridge.localization
 
 import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Defense-in-depth fallback strings for the runtime resolver.
@@ -19,7 +20,10 @@ import android.util.Log
 internal object Fallbacks {
 
     private const val TAG = "Localization"
-    private val warned = mutableSetOf<String>()
+
+    // Shared across UI and background threads (e.g. MqttForegroundService resolving
+    // notification-channel strings off the main thread), so the set must be concurrent.
+    private val warned: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     fun warnOnce(message: String) {
         if (warned.add(message)) Log.w(TAG, message)

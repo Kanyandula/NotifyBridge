@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.os.LocaleList
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.edit
 import androidx.core.os.LocaleListCompat
 import com.nyasa.notifybridge.domain.repo.LocalizationRepository
 import com.nyasa.notifybridge.localization.AssetJsonLanguage
@@ -43,38 +44,39 @@ class LocalizationRepositoryImpl @Inject constructor(
     }
 
     override fun setApplicationLanguage(tag: String?) {
-        val normalized = tag?.let(::normalize)
-        saveSelectedTag(normalized)
-        applyPlatformLocale(normalized)
+        val bundled = tag?.let(::bundledOrNull)
+        saveSelectedTag(bundled)
+        applyPlatformLocale(bundled)
 
-        _selectedLanguageTag.value = normalized
-        _language.value = loadLanguage(normalized)
+        _selectedLanguageTag.value = bundled
+        _language.value = loadLanguage(bundled)
     }
 
     private fun loadSelectedTag(): String? {
-        prefs.getString(KEY_SELECTED_LANGUAGE, null)?.let { return normalize(it) }
+        val savedTag = prefs.getString(KEY_SELECTED_LANGUAGE, null)?.let(::bundledOrNull)
+        if (savedTag != null) return savedTag
 
         val applied = AppCompatDelegate.getApplicationLocales()
-        return if (!applied.isEmpty) {
-            applied.get(0)?.toLanguageTag()?.substringBefore('-')?.lowercase()?.let(::normalize)
-        } else {
-            null
-        }
+        // If the system-applied locale is non-bundled, treat it as "follow system"
+        // (null) rather than silently collapsing to EN — the picker uses this to
+        // decide which row to mark selected.
+        val appliedTag = if (applied.isEmpty) null else applied.get(0)?.toLanguageTag()
+        return appliedTag?.let(::bundledOrNull)
     }
 
     private fun loadLanguage(selectedTag: String?): Language {
         val tag = selectedTag ?: Locale.getDefault().toLanguageTag()
-        return AssetJsonLanguage(normalize(tag), context)
+        return AssetJsonLanguage(bundledOrFallback(tag), context)
     }
 
     private fun saveSelectedTag(tag: String?) {
-        prefs.edit().apply {
+        prefs.edit {
             if (tag == null) {
                 remove(KEY_SELECTED_LANGUAGE)
             } else {
                 putString(KEY_SELECTED_LANGUAGE, tag)
             }
-        }.apply()
+        }
     }
 
     private fun applyPlatformLocale(tag: String?) {
@@ -95,10 +97,17 @@ class LocalizationRepositoryImpl @Inject constructor(
         AppCompatDelegate.setApplicationLocales(appCompatLocales)
     }
 
-    private fun normalize(rawTag: String): String {
+    /** Returns the bundled primary subtag for [rawTag], or null if we don't ship it. */
+    private fun bundledOrNull(rawTag: String): String? {
         val lang = rawTag.substringBefore('-').lowercase()
-        return if (lang in BUNDLED) lang else FALLBACK
+        return if (lang in BUNDLED) lang else null
     }
+
+    /**
+     * Like [bundledOrNull] but returns [FALLBACK] for non-bundled tags.
+     * Use when picking which JSON to load.
+     */
+    private fun bundledOrFallback(rawTag: String): String = bundledOrNull(rawTag) ?: FALLBACK
 
     private companion object {
         const val PREFS_NAME = "localization"

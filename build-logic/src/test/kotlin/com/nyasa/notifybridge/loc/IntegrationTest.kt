@@ -45,6 +45,7 @@ class IntegrationTest {
             "BrokerStringExtensions.kt",
             "AppsStringExtensions.kt",
             "PermissionsStringExtensions.kt",
+            "LanguageStringExtensions.kt",
             "LockedStringExtensions.kt",
             "ServicesStringExtensions.kt",
         )
