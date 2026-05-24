@@ -43,6 +43,7 @@ datastore = { module = "androidx.datastore:datastore-preferences", version.ref =
 hivemq-mqtt = { module = "com.hivemq:hivemq-mqtt-client", version.ref = "hivemq" }
 work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
+appcompat = { module = "androidx.appcompat:appcompat", version = "1.7.1" }
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 junit = { module = "junit:junit", version = "4.13.2" }

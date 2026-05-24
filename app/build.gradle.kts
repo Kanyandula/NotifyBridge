@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.detekt)
+    id("nyasa.localization-codegen")
 }
 android {
     namespace = "com.nyasa.notifybridge"
@@ -17,6 +18,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "com.nyasa.notifybridge.HiltTestRunner"
+        // Restrict bundled locales to the four we ship — avoids pulling in
+        // AppCompat's full locale baggage. Add new tags here in lockstep with
+        // app/src/main/assets/localization/<tag>/strings.json.
+        resourceConfigurations += setOf("en", "fr", "es", "pt")
     }
     buildTypes {
         release {
@@ -103,6 +108,7 @@ dependencies {
     implementation(libs.hivemq.mqtt)
     implementation(libs.work.runtime)
     implementation(libs.biometric)
+    implementation(libs.appcompat)
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
     testImplementation(libs.junit)

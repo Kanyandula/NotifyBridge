@@ -6,6 +6,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.nyasa.notifybridge.ui.apps.AppsScreen
 import com.nyasa.notifybridge.ui.broker.BrokerScreen
+import com.nyasa.notifybridge.ui.language.LanguageSettingsScreen
 import com.nyasa.notifybridge.ui.onboarding.OnboardingScreen
 import com.nyasa.notifybridge.ui.permissions.PermissionsScreen
 import com.nyasa.notifybridge.ui.status.StatusScreen
@@ -19,5 +20,6 @@ fun NotifyBridgeNavHost(startOnboarding: Boolean) {
         composable("broker") { BrokerScreen(nav) }
         composable("permissions") { PermissionsScreen(nav) }
         composable("apps") { AppsScreen(nav) }
+        composable("language") { LanguageSettingsScreen(nav) }
     }
 }

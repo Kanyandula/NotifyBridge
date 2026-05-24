@@ -47,6 +47,23 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
+import com.nyasa.notifybridge.localization.Dictionary
+import com.nyasa.notifybridge.localization.appName
+import com.nyasa.notifybridge.localization.heading
+import com.nyasa.notifybridge.localization.localized
+import com.nyasa.notifybridge.localization.privacyBody
+import com.nyasa.notifybridge.localization.privacyLabel
+import com.nyasa.notifybridge.localization.statusChip
+import com.nyasa.notifybridge.localization.step1Button
+import com.nyasa.notifybridge.localization.step1Description
+import com.nyasa.notifybridge.localization.step1Title
+import com.nyasa.notifybridge.localization.step2Button
+import com.nyasa.notifybridge.localization.step2Description
+import com.nyasa.notifybridge.localization.step2Title
+import com.nyasa.notifybridge.localization.step3Button
+import com.nyasa.notifybridge.localization.step3Description
+import com.nyasa.notifybridge.localization.step3Title
+import com.nyasa.notifybridge.localization.subheading
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 
 @Composable
@@ -109,7 +126,7 @@ private fun OnboardingContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "NotifyBridge",
+                text = Dictionary.Common.appName.localized(),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -126,7 +143,7 @@ private fun OnboardingContent(
                 .padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
             Text(
-                text = "SETUP IN PROGRESS",
+                text = Dictionary.Onboarding.statusChip.localized(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
@@ -138,7 +155,7 @@ private fun OnboardingContent(
 
         // Heading
         Text(
-            text = "Guided Setup",
+            text = Dictionary.Onboarding.heading.localized(),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -147,7 +164,7 @@ private fun OnboardingContent(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Notifications → MQTT, local only",
+            text = Dictionary.Onboarding.subheading.localized(),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
         )
@@ -158,9 +175,9 @@ private fun OnboardingContent(
         val step1Active = state.activeStep == OnboardingStep.GRANT_ACCESS
         StepCard(
             number = 1,
-            title = "Grant notification access",
-            description = "Required to read notifications. This opens the Android system settings menu.",
-            buttonLabel = "Grant",
+            title = Dictionary.Onboarding.step1Title.localized(),
+            description = Dictionary.Onboarding.step1Description.localized(),
+            buttonLabel = Dictionary.Onboarding.step1Button.localized(),
             buttonIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp)) },
             isActive = step1Active,
             isEnabled = step1Active,
@@ -173,9 +190,9 @@ private fun OnboardingContent(
         val step2Active = state.activeStep == OnboardingStep.CONNECT_BROKER
         StepCard(
             number = 2,
-            title = "Connect your broker",
-            description = "Point NotifyBridge at your Mosquitto / Home Assistant MQTT broker.",
-            buttonLabel = "Configure",
+            title = Dictionary.Onboarding.step2Title.localized(),
+            description = Dictionary.Onboarding.step2Description.localized(),
+            buttonLabel = Dictionary.Onboarding.step2Button.localized(),
             buttonIcon = null,
             isActive = step2Active,
             isEnabled = step2Active,
@@ -188,9 +205,9 @@ private fun OnboardingContent(
         val step3Active = state.activeStep == OnboardingStep.CHOOSE_APPS
         StepCard(
             number = 3,
-            title = "Choose which apps to forward",
-            description = "Nothing is forwarded until you pick apps. Your choice, your privacy.",
-            buttonLabel = "Choose apps",
+            title = Dictionary.Onboarding.step3Title.localized(),
+            description = Dictionary.Onboarding.step3Description.localized(),
+            buttonLabel = Dictionary.Onboarding.step3Button.localized(),
             buttonIcon = null,
             isActive = step3Active,
             isEnabled = step3Active,
@@ -212,7 +229,7 @@ private fun OnboardingContent(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "PRIVACY POLICY",
+                text = Dictionary.Onboarding.privacyLabel.localized(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                 letterSpacing = 1.sp,
@@ -220,7 +237,7 @@ private fun OnboardingContent(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Everything stays on your network. No cloud, no Google, no Firebase.",
+                text = Dictionary.Onboarding.privacyBody.localized(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
                 textAlign = TextAlign.Center,

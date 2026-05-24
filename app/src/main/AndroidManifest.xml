@@ -33,8 +33,10 @@
         android:name=".NotifyBridgeApp"
         android:allowBackup="false"
         android:label="NotifyBridge"
+        android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.NoActionBar">
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        tools:targetApi="33">
 
         <!-- NotifyBridgeApp implements Configuration.Provider (HiltWorkerFactory).
              WorkManager on-demand init requires removing its default startup
@@ -60,6 +62,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
         <service
             android:name=".service.MqttForegroundService"
             android:exported="false"

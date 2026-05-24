@@ -10,8 +10,13 @@ import android.os.Build
 import android.os.IBinder
 import com.nyasa.notifybridge.BuildConfig
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
+import com.nyasa.notifybridge.domain.repo.LocalizationRepository
 import com.nyasa.notifybridge.domain.repo.SettingsRepository
 import com.nyasa.notifybridge.domain.usecase.DrainOutboxUseCase
+import com.nyasa.notifybridge.localization.Dictionary
+import com.nyasa.notifybridge.localization.LocalizedString
+import com.nyasa.notifybridge.localization.foregroundTitle
+import com.nyasa.notifybridge.localization.notificationChannelName
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +30,7 @@ import javax.inject.Inject
 class MqttForegroundService : Service() {
     @Inject lateinit var mqtt: MqttClientManager
     @Inject lateinit var settings: SettingsRepository
+    @Inject lateinit var localization: LocalizationRepository
     @Inject lateinit var drain: DrainOutboxUseCase
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -54,15 +60,22 @@ class MqttForegroundService : Service() {
         val ch = "bridge"
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(ch, "Bridge", NotificationManager.IMPORTANCE_LOW))
+            NotificationChannel(
+                ch,
+                resolve(Dictionary.Services.notificationChannelName),
+                NotificationManager.IMPORTANCE_LOW,
+            ),
+        )
         val n: Notification = Notification.Builder(this, ch)
-            .setContentTitle("NotifyBridge active")
+            .setContentTitle(resolve(Dictionary.Services.foregroundTitle))
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         } else startForeground(1, n)
     }
+
+    private fun resolve(s: LocalizedString): String = s.resolve(localization.languageFlow.value)
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
     override fun onBind(i: Intent?): IBinder? = null

@@ -64,12 +64,44 @@ import com.nyasa.notifybridge.domain.model.AppLockPrefs
 import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.ConnectionState
 import com.nyasa.notifybridge.domain.model.RecentItem
+import com.nyasa.notifybridge.localization.Dictionary
+import com.nyasa.notifybridge.localization.appName
+import com.nyasa.notifybridge.localization.appsEnabled
+import com.nyasa.notifybridge.localization.brokerSummaryLine
+import com.nyasa.notifybridge.localization.connected
+import com.nyasa.notifybridge.localization.hostPort
+import com.nyasa.notifybridge.localization.keepalive60s
+import com.nyasa.notifybridge.localization.latest20
+import com.nyasa.notifybridge.localization.localized
+import com.nyasa.notifybridge.localization.manageButton
+import com.nyasa.notifybridge.localization.navAccess
+import com.nyasa.notifybridge.localization.navApps
+import com.nyasa.notifybridge.localization.navBroker
+import com.nyasa.notifybridge.localization.navStatus
+import com.nyasa.notifybridge.localization.noRecent
+import com.nyasa.notifybridge.localization.noTitle
+import com.nyasa.notifybridge.localization.outboxAllDelivered
+import com.nyasa.notifybridge.localization.outboxBufferNote
+import com.nyasa.notifybridge.localization.queuedNotifications
+import com.nyasa.notifybridge.localization.recentHeading
+import com.nyasa.notifybridge.localization.sectionBroker
+import com.nyasa.notifybridge.localization.sectionForwarding
+import com.nyasa.notifybridge.localization.sectionOutbox
+import com.nyasa.notifybridge.localization.stateConnected
+import com.nyasa.notifybridge.localization.stateConnecting
+import com.nyasa.notifybridge.localization.stateDisconnected
+import com.nyasa.notifybridge.localization.stateError
+import com.nyasa.notifybridge.localization.tlsOff
+import com.nyasa.notifybridge.localization.tlsPinned
+import com.nyasa.notifybridge.localization.tlsSystemCa
+import com.nyasa.notifybridge.localization.unknownApp
 import com.nyasa.notifybridge.ui.theme.Amber
 import com.nyasa.notifybridge.ui.theme.ErrorRed
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -151,14 +183,14 @@ private fun StatusContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "NotifyBridge",
+                    text = Dictionary.Common.appName.localized(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Icon(
                     imageVector = Icons.Filled.Router,
-                    contentDescription = "Broker",
+                    contentDescription = Dictionary.Common.navBroker.localized(),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp),
                 )
@@ -168,10 +200,10 @@ private fun StatusContent(
 
             // Connection state chip
             val (chipColor, chipLabel) = when (state.connectionState) {
-                ConnectionState.CONNECTED -> Teal to "CONNECTED"
-                ConnectionState.CONNECTING -> Amber to "CONNECTING"
-                ConnectionState.ERROR -> ErrorRed to "ERROR"
-                ConnectionState.DISCONNECTED -> ErrorRed to "DISCONNECTED"
+                ConnectionState.CONNECTED -> Teal to Dictionary.Status.stateConnected.localized()
+                ConnectionState.CONNECTING -> Amber to Dictionary.Status.stateConnecting.localized()
+                ConnectionState.ERROR -> ErrorRed to Dictionary.Status.stateError.localized()
+                ConnectionState.DISCONNECTED -> ErrorRed to Dictionary.Status.stateDisconnected.localized()
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -196,24 +228,26 @@ private fun StatusContent(
 
             val broker = state.brokerConfig
             Text(
-                text = "mqtt://${broker.host}:${broker.port} · device: ${broker.deviceName}",
+                text = Dictionary.Status
+                    .brokerSummaryLine(host = broker.host, port = broker.port, device = broker.deviceName)
+                    .localized(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            SectionCard(title = "BROKER") {
+            SectionCard(title = Dictionary.Status.sectionBroker.localized()) {
                 Text(
-                    text = "${broker.host}:${broker.port}",
+                    text = Dictionary.Status.hostPort(host = broker.host, port = broker.port).localized(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold,
                 )
                 val tlsText = when (broker.tlsMode) {
-                    com.nyasa.notifybridge.domain.model.TlsMode.OFF -> "TLS: Off"
-                    com.nyasa.notifybridge.domain.model.TlsMode.SYSTEM_CA -> "TLS: On (system CA)"
-                    com.nyasa.notifybridge.domain.model.TlsMode.PINNED -> "TLS: On (pinned cert)"
+                    com.nyasa.notifybridge.domain.model.TlsMode.OFF -> Dictionary.Status.tlsOff.localized()
+                    com.nyasa.notifybridge.domain.model.TlsMode.SYSTEM_CA -> Dictionary.Status.tlsSystemCa.localized()
+                    com.nyasa.notifybridge.domain.model.TlsMode.PINNED -> Dictionary.Status.tlsPinned.localized()
                 }
                 Text(
                     text = tlsText,
@@ -221,14 +255,14 @@ private fun StatusContent(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
                 Text(
-                    text = "keep-alive: 60s",
+                    text = Dictionary.Status.keepalive60s.localized(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
                 if (state.connectionState == ConnectionState.CONNECTED) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Connected",
+                        text = Dictionary.Status.connected.localized(),
                         style = MaterialTheme.typography.bodySmall,
                         color = Teal,
                     )
@@ -237,23 +271,23 @@ private fun StatusContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            SectionCard(title = "OUTBOX") {
+            SectionCard(title = Dictionary.Status.sectionOutbox.localized()) {
                 Text(
-                    text = "${state.outboxDepth}",
+                    text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(state.outboxDepth),
                     style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = if (state.outboxDepth == 0) "queued notifications\nall delivered"
-                           else "${state.outboxDepth} queued notification${if (state.outboxDepth == 1) "" else "s"}",
+                    text = if (state.outboxDepth == 0) Dictionary.Status.outboxAllDelivered.localized()
+                           else Dictionary.Status.queuedNotifications(count = state.outboxDepth).localized(),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (state.outboxDepth == 0) Teal
                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "buffers automatically if broker goes away",
+                    text = Dictionary.Status.outboxBufferNote.localized(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                 )
@@ -261,21 +295,21 @@ private fun StatusContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            SectionCard(title = "FORWARDING") {
+            SectionCard(title = Dictionary.Status.sectionForwarding.localized()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "${state.allowListSize} app${if (state.allowListSize == 1) "" else "s"} enabled",
+                        text = Dictionary.Status.appsEnabled(count = state.allowListSize).localized(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     TextButton(onClick = onNavApps) {
                         Text(
-                            text = "MANAGE",
+                            text = Dictionary.Status.manageButton.localized(),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold,
@@ -293,13 +327,13 @@ private fun StatusContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Recent",
+                    text = Dictionary.Status.recentHeading.localized(),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = "Latest 20",
+                    text = Dictionary.Status.latest20.localized(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                 )
@@ -309,7 +343,7 @@ private fun StatusContent(
 
             if (recentItems.isEmpty()) {
                 Text(
-                    text = "No recent notifications",
+                    text = Dictionary.Status.noRecent.localized(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -391,12 +425,12 @@ private fun RecentRow(
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = item.app.ifBlank { "Unknown" },
+                    text = item.app.ifBlank { Dictionary.Status.unknownApp.localized() },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 )
                 Text(
-                    text = item.title.ifBlank { "(no title)" },
+                    text = item.title.ifBlank { Dictionary.Status.noTitle.localized() },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -472,12 +506,16 @@ private fun StatusBottomNav(
     onBroker: () -> Unit,
     onAccess: () -> Unit,
 ) {
+    val statusLabel = Dictionary.Common.navStatus.localized()
+    val appsLabel = Dictionary.Common.navApps.localized()
+    val brokerLabel = Dictionary.Common.navBroker.localized()
+    val accessLabel = Dictionary.Common.navAccess.localized()
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         NavigationBarItem(
             selected = true,
             onClick = onStatus,
-            icon = { Icon(Icons.Filled.Dashboard, contentDescription = "Status") },
-            label = { Text("Status") },
+            icon = { Icon(Icons.Filled.Dashboard, contentDescription = statusLabel) },
+            label = { Text(statusLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
@@ -489,8 +527,8 @@ private fun StatusBottomNav(
         NavigationBarItem(
             selected = false,
             onClick = onApps,
-            icon = { Icon(Icons.Filled.Apps, contentDescription = "Apps") },
-            label = { Text("Apps") },
+            icon = { Icon(Icons.Filled.Apps, contentDescription = appsLabel) },
+            label = { Text(appsLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
@@ -502,8 +540,8 @@ private fun StatusBottomNav(
         NavigationBarItem(
             selected = false,
             onClick = onBroker,
-            icon = { Icon(Icons.Filled.Router, contentDescription = "Broker") },
-            label = { Text("Broker") },
+            icon = { Icon(Icons.Filled.Router, contentDescription = brokerLabel) },
+            label = { Text(brokerLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
@@ -515,8 +553,8 @@ private fun StatusBottomNav(
         NavigationBarItem(
             selected = false,
             onClick = onAccess,
-            icon = { Icon(Icons.Filled.Security, contentDescription = "Access") },
-            label = { Text("Access") },
+            icon = { Icon(Icons.Filled.Security, contentDescription = accessLabel) },
+            label = { Text(accessLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
