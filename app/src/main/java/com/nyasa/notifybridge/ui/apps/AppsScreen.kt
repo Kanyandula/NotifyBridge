@@ -55,6 +55,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.nyasa.notifybridge.localization.Dictionary
+import com.nyasa.notifybridge.localization.appsForwardingSummary
+import com.nyasa.notifybridge.localization.bannerMessage
+import com.nyasa.notifybridge.localization.clearSearch
+import com.nyasa.notifybridge.localization.dismissBanner
+import com.nyasa.notifybridge.localization.loading
+import com.nyasa.notifybridge.localization.localized
+import com.nyasa.notifybridge.localization.navAccess
+import com.nyasa.notifybridge.localization.navApps
+import com.nyasa.notifybridge.localization.navBroker
+import com.nyasa.notifybridge.localization.navStatus
+import com.nyasa.notifybridge.localization.onlySelectedNote
+import com.nyasa.notifybridge.localization.searchPlaceholder
+import com.nyasa.notifybridge.localization.title
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 
@@ -105,7 +119,7 @@ private fun AppsContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Apps",
+                        text = Dictionary.Apps.title.localized(),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -124,7 +138,7 @@ private fun AppsContent(
                     onValueChange = onQueryChange,
                     placeholder = {
                         Text(
-                            "Search apps…",
+                            Dictionary.Apps.searchPlaceholder.localized(),
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                         )
                     },
@@ -140,7 +154,7 @@ private fun AppsContent(
                             IconButton(onClick = { onQueryChange("") }) {
                                 Icon(
                                     imageVector = Icons.Filled.Close,
-                                    contentDescription = "Clear search",
+                                    contentDescription = Dictionary.Apps.clearSearch.localized(),
                                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                 )
                             }
@@ -169,13 +183,15 @@ private fun AppsContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "$enabledCount of $totalCount apps forwarding",
+                        text = Dictionary.Apps
+                            .appsForwardingSummary(enabled = enabledCount, total = totalCount)
+                            .localized(),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = Teal,
                     )
                     Text(
-                        text = "Only selected apps are sent.",
+                        text = Dictionary.Apps.onlySelectedNote.localized(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     )
@@ -192,7 +208,7 @@ private fun AppsContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            text = "Empty by design — you opted these in. Add or remove anytime.",
+                            text = Dictionary.Apps.bannerMessage.localized(),
                             style = MaterialTheme.typography.bodySmall,
                             color = Teal,
                             modifier = Modifier.weight(1f),
@@ -204,7 +220,7 @@ private fun AppsContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Close,
-                                contentDescription = "Dismiss",
+                                contentDescription = Dictionary.Apps.dismissBanner.localized(),
                                 tint = Teal,
                                 modifier = Modifier.size(16.dp),
                             )
@@ -230,7 +246,7 @@ private fun AppsContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Loading apps…",
+                    text = Dictionary.Apps.loading.localized(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 )
@@ -342,33 +358,37 @@ private fun AppsBottomNav(
     onBroker: () -> Unit,
     onAccess: () -> Unit,
 ) {
+    val statusLabel = Dictionary.Common.navStatus.localized()
+    val appsLabel = Dictionary.Common.navApps.localized()
+    val brokerLabel = Dictionary.Common.navBroker.localized()
+    val accessLabel = Dictionary.Common.navAccess.localized()
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         NavigationBarItem(
             selected = false,
             onClick = onStatus,
-            icon = { Icon(Icons.Filled.Dashboard, contentDescription = "Status") },
-            label = { Text("Status") },
+            icon = { Icon(Icons.Filled.Dashboard, contentDescription = statusLabel) },
+            label = { Text(statusLabel) },
             colors = navItemColors(),
         )
         NavigationBarItem(
             selected = true,
             onClick = onApps,
-            icon = { Icon(Icons.Filled.Apps, contentDescription = "Apps") },
-            label = { Text("Apps") },
+            icon = { Icon(Icons.Filled.Apps, contentDescription = appsLabel) },
+            label = { Text(appsLabel) },
             colors = navItemColors(),
         )
         NavigationBarItem(
             selected = false,
             onClick = onBroker,
-            icon = { Icon(Icons.Filled.Router, contentDescription = "Broker") },
-            label = { Text("Broker") },
+            icon = { Icon(Icons.Filled.Router, contentDescription = brokerLabel) },
+            label = { Text(brokerLabel) },
             colors = navItemColors(),
         )
         NavigationBarItem(
             selected = false,
             onClick = onAccess,
-            icon = { Icon(Icons.Filled.Security, contentDescription = "Access") },
-            label = { Text("Access") },
+            icon = { Icon(Icons.Filled.Security, contentDescription = accessLabel) },
+            label = { Text(accessLabel) },
             colors = navItemColors(),
         )
     }

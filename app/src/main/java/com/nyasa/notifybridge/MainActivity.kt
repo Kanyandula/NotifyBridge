@@ -8,7 +8,9 @@ import androidx.lifecycle.lifecycleScope
 import com.nyasa.notifybridge.applock.AppLockGate
 import com.nyasa.notifybridge.applock.AppLockManager
 import com.nyasa.notifybridge.applock.BiometricAuthenticator
+import com.nyasa.notifybridge.domain.repo.LocalizationRepository
 import com.nyasa.notifybridge.domain.repo.SettingsRepository
+import com.nyasa.notifybridge.localization.Localized
 import com.nyasa.notifybridge.ui.NotifyBridgeNavHost
 import com.nyasa.notifybridge.ui.locked.LockedScreen
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
@@ -22,12 +24,17 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     @Inject lateinit var settings: SettingsRepository
+    @Inject lateinit var localization: LocalizationRepository
     private lateinit var lock: AppLockManager
     private var prefsEnabled = true
     private var idle = 60_000L
 
     override fun onCreate(s: Bundle?) {
         super.onCreate(s)
+        // AppCompat owns the active locale; refresh on every onCreate so a
+        // post-locale-change activity recreate immediately reflects in the
+        // LocalizationRepository's StateFlow.
+        localization.refresh()
         enableEdgeToEdge()
         lock = AppLockManager(enabled = { prefsEnabled }, idleMs = { idle })
         lifecycleScope.launch {
@@ -45,16 +52,18 @@ class MainActivity : FragmentActivity() {
         val startOnboarding = !(notifAccess && brokerSet && appsChosen)
         val auth = BiometricAuthenticator(this)
         setContent {
-            NotifyBridgeTheme {
-                AppLockGate(
-                    manager = lock,
-                    locked = {
-                        LockedScreen(onUnlock = {
-                            auth.prompt(this, onSuccess = { lock.onAuthenticated() },
-                                onFail = {})
-                        })
-                    },
-                    content = { NotifyBridgeNavHost(startOnboarding = startOnboarding) })
+            Localized(repository = localization) {
+                NotifyBridgeTheme {
+                    AppLockGate(
+                        manager = lock,
+                        locked = {
+                            LockedScreen(onUnlock = {
+                                auth.prompt(this, onSuccess = { lock.onAuthenticated() },
+                                    onFail = {})
+                            })
+                        },
+                        content = { NotifyBridgeNavHost(startOnboarding = startOnboarding) })
+                }
             }
         }
         // FLAG_SECURE applied per-screen in Status/Broker (Task 20/21).

@@ -67,23 +67,61 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import com.nyasa.notifybridge.domain.model.AppLockPrefs
+import com.nyasa.notifybridge.localization.Dictionary
+import com.nyasa.notifybridge.localization.LocalLanguage
+import com.nyasa.notifybridge.localization.LocalizedString
+import com.nyasa.notifybridge.localization.applockEnableDescription
+import com.nyasa.notifybridge.localization.applockEnableTitle
+import com.nyasa.notifybridge.localization.applockSection
+import com.nyasa.notifybridge.localization.batteryButton
+import com.nyasa.notifybridge.localization.batteryDescription
+import com.nyasa.notifybridge.localization.batteryTitle
+import com.nyasa.notifybridge.localization.lockAfterIdle
+import com.nyasa.notifybridge.localization.localized
+import com.nyasa.notifybridge.localization.navAccess
+import com.nyasa.notifybridge.localization.navApps
+import com.nyasa.notifybridge.localization.navBroker
+import com.nyasa.notifybridge.localization.navStatus
+import com.nyasa.notifybridge.localization.notifAccessDescription
+import com.nyasa.notifybridge.localization.languageCardButton
+import com.nyasa.notifybridge.localization.languageCardDescription
+import com.nyasa.notifybridge.localization.languageCardTitle
+import com.nyasa.notifybridge.localization.languageSection
+import com.nyasa.notifybridge.localization.notifAccessTitle
+import com.nyasa.notifybridge.localization.openSettingsButton
+import com.nyasa.notifybridge.localization.systemDefault
+import com.nyasa.notifybridge.localization.pillActionNeeded
+import com.nyasa.notifybridge.localization.pillEnabled
+import com.nyasa.notifybridge.localization.pillGranted
+import com.nyasa.notifybridge.localization.redactDescription
+import com.nyasa.notifybridge.localization.redactTitle
+import com.nyasa.notifybridge.localization.securityNote
+import com.nyasa.notifybridge.localization.startupDescription
+import com.nyasa.notifybridge.localization.startupTitle
+import com.nyasa.notifybridge.localization.timeout15m
+import com.nyasa.notifybridge.localization.timeout1m
+import com.nyasa.notifybridge.localization.timeout30m
+import com.nyasa.notifybridge.localization.timeout30s
+import com.nyasa.notifybridge.localization.timeout5m
+import com.nyasa.notifybridge.localization.title
 import com.nyasa.notifybridge.ui.theme.Amber
 import com.nyasa.notifybridge.ui.theme.ErrorRed
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 
-private data class TimeoutOption(val label: String, val ms: Long)
+private data class TimeoutOption(val label: LocalizedString, val ms: Long)
 
 private val timeoutOptions = listOf(
-    TimeoutOption("30 seconds", 30_000L),
-    TimeoutOption("1 minute", 60_000L),
-    TimeoutOption("5 minutes", 300_000L),
-    TimeoutOption("15 minutes", 900_000L),
-    TimeoutOption("30 minutes", 1_800_000L),
+    TimeoutOption(Dictionary.Permissions.timeout30s, 30_000L),
+    TimeoutOption(Dictionary.Permissions.timeout1m, 60_000L),
+    TimeoutOption(Dictionary.Permissions.timeout5m, 300_000L),
+    TimeoutOption(Dictionary.Permissions.timeout15m, 900_000L),
+    TimeoutOption(Dictionary.Permissions.timeout30m, 1_800_000L),
 )
 
+@Composable
 private fun labelForMs(ms: Long): String =
-    timeoutOptions.firstOrNull { it.ms == ms }?.label ?: "${ms / 1000}s"
+    timeoutOptions.firstOrNull { it.ms == ms }?.label?.localized() ?: "${ms / 1000}s"
 
 @Composable
 fun PermissionsScreen(nav: NavHostController) {
@@ -125,6 +163,7 @@ fun PermissionsScreen(nav: NavHostController) {
         onNavStatus = { nav.navigate("status") },
         onNavApps = { nav.navigate("apps") },
         onNavBroker = { nav.navigate("broker") },
+        onNavLanguage = { nav.navigate("language") },
     )
 }
 
@@ -141,6 +180,7 @@ private fun PermissionsContent(
     onNavStatus: () -> Unit,
     onNavApps: () -> Unit,
     onNavBroker: () -> Unit,
+    onNavLanguage: () -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -161,7 +201,7 @@ private fun PermissionsContent(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         ) {
             Text(
-                text = "Permissions",
+                text = Dictionary.Permissions.title.localized(),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -171,10 +211,10 @@ private fun PermissionsContent(
 
             PermissionCard(
                 icon = Icons.Filled.Notifications,
-                title = "Notification access",
-                description = "NotifyBridge can read posted notifications. This is the core permission.",
+                title = Dictionary.Permissions.notifAccessTitle.localized(),
+                description = Dictionary.Permissions.notifAccessDescription.localized(),
                 pill = permPill(notifGranted),
-                actionLabel = "Open settings",
+                actionLabel = Dictionary.Permissions.openSettingsButton.localized(),
                 onAction = onOpenNotifSettings,
             )
 
@@ -186,10 +226,10 @@ private fun PermissionsContent(
             // Settings → Battery if they need to.
             PermissionCard(
                 icon = Icons.Filled.BatteryAlert,
-                title = "Battery optimization",
-                description = "Android Doze can suspend the bridge while the phone is idle, delaying or dropping notifications. Exempt NotifyBridge to keep it reliable while locked.",
+                title = Dictionary.Permissions.batteryTitle.localized(),
+                description = Dictionary.Permissions.batteryDescription.localized(),
                 pill = permPill(batteryExempt),
-                actionLabel = "Request exemption",
+                actionLabel = Dictionary.Permissions.batteryButton.localized(),
                 onAction = onRequestBatteryExemption,
                 hideActionWhenGranted = true,
             )
@@ -216,23 +256,20 @@ private fun PermissionsContent(
                             modifier = Modifier.size(20.dp),
                         )
                         Text(
-                            text = "Run at startup",
+                            text = Dictionary.Permissions.startupTitle.localized(),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Spacer(modifier = Modifier.weight(1f))
-                        PillChip(label = "ENABLED", color = Teal)
+                        PillChip(label = Dictionary.Permissions.pillEnabled.localized(), color = Teal)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     // §8 caveat copy (verbatim from spec §8 / §2.1):
                     // "BOOT_COMPLETED fires only after the user has opened the app at
                     //  least once — documented as a known gotcha; not a defect."
                     Text(
-                        text = "Re-drains buffered notifications after a reboot. " +
-                            "Note: on Android 12+, BOOT_COMPLETED fires only after " +
-                            "the user has opened the app at least once — " +
-                            "documented as a known gotcha; not a defect.",
+                        text = Dictionary.Permissions.startupDescription.localized(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     )
@@ -251,7 +288,7 @@ private fun PermissionsContent(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "APP LOCK",
+                        text = Dictionary.Permissions.applockSection.localized(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         letterSpacing = 1.sp,
@@ -267,13 +304,13 @@ private fun PermissionsContent(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Enable app lock",
+                                text = Dictionary.Permissions.applockEnableTitle.localized(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                text = "Require biometric / PIN on launch and after idle",
+                                text = Dictionary.Permissions.applockEnableDescription.localized(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                             )
@@ -310,13 +347,13 @@ private fun PermissionsContent(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Require auth to reveal body",
+                                    text = Dictionary.Permissions.redactTitle.localized(),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    text = "Masks notification text in Recent — auth to reveal per item",
+                                    text = Dictionary.Permissions.redactDescription.localized(),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                 )
@@ -359,14 +396,16 @@ private fun PermissionsContent(
                         modifier = Modifier.size(20.dp),
                     )
                     Text(
-                        text = "Notification content can include OTP codes and bank alerts. " +
-                            "NotifyBridge only forwards apps you explicitly allow, " +
-                            "over your local network.",
+                        text = Dictionary.Permissions.securityNote.localized(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            LanguageEntryCard(onNavLanguage = onNavLanguage)
 
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -413,7 +452,10 @@ private fun PermissionCard(
                     modifier = Modifier.weight(1f),
                 )
                 PillChip(
-                    label = if (pill == PermPill.GRANTED) "GRANTED" else "ACTION NEEDED",
+                    label = if (pill == PermPill.GRANTED)
+                        Dictionary.Permissions.pillGranted.localized()
+                    else
+                        Dictionary.Permissions.pillActionNeeded.localized(),
                     color = pillColor,
                 )
             }
@@ -445,6 +487,64 @@ private fun PermissionCard(
 }
 
 @Composable
+private fun LanguageEntryCard(onNavLanguage: () -> Unit) {
+    val currentTag = LocalLanguage.current.tag
+    val nativeName = when (currentTag) {
+        "en" -> "English"
+        "fr" -> "Français"
+        "es" -> "Español"
+        "pt" -> "Português"
+        else -> Dictionary.Language.systemDefault.localized()
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = Dictionary.Permissions.languageSection.localized(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                letterSpacing = 1.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = Dictionary.Permissions.languageCardTitle.localized(),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = Dictionary.Permissions
+                    .languageCardDescription(language = nativeName)
+                    .localized(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onNavLanguage,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ),
+                elevation = ButtonDefaults.buttonElevation(0.dp),
+            ) {
+                Text(
+                    text = Dictionary.Permissions.languageCardButton.localized(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun PillChip(label: String, color: androidx.compose.ui.graphics.Color) {
     Box(
         modifier = Modifier
@@ -469,7 +569,7 @@ private fun IdleTimeoutDropdown(currentMs: Long, onSelect: (Long) -> Unit) {
 
     Column {
         Text(
-            text = "Lock after idle",
+            text = Dictionary.Permissions.lockAfterIdle.localized(),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -495,7 +595,7 @@ private fun IdleTimeoutDropdown(currentMs: Long, onSelect: (Long) -> Unit) {
             ) {
                 timeoutOptions.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option.label) },
+                        text = { Text(option.label.localized()) },
                         onClick = {
                             onSelect(option.ms)
                             expanded = false
@@ -514,12 +614,16 @@ private fun PermissionsBottomNav(
     onBroker: () -> Unit,
     onAccess: () -> Unit,
 ) {
+    val statusLabel = Dictionary.Common.navStatus.localized()
+    val appsLabel = Dictionary.Common.navApps.localized()
+    val brokerLabel = Dictionary.Common.navBroker.localized()
+    val accessLabel = Dictionary.Common.navAccess.localized()
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         NavigationBarItem(
             selected = false,
             onClick = onStatus,
-            icon = { Icon(Icons.Filled.Dashboard, contentDescription = "Status") },
-            label = { Text("Status") },
+            icon = { Icon(Icons.Filled.Dashboard, contentDescription = statusLabel) },
+            label = { Text(statusLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
@@ -531,8 +635,8 @@ private fun PermissionsBottomNav(
         NavigationBarItem(
             selected = false,
             onClick = onApps,
-            icon = { Icon(Icons.Filled.Apps, contentDescription = "Apps") },
-            label = { Text("Apps") },
+            icon = { Icon(Icons.Filled.Apps, contentDescription = appsLabel) },
+            label = { Text(appsLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
@@ -544,8 +648,8 @@ private fun PermissionsBottomNav(
         NavigationBarItem(
             selected = false,
             onClick = onBroker,
-            icon = { Icon(Icons.Filled.Router, contentDescription = "Broker") },
-            label = { Text("Broker") },
+            icon = { Icon(Icons.Filled.Router, contentDescription = brokerLabel) },
+            label = { Text(brokerLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
@@ -557,8 +661,8 @@ private fun PermissionsBottomNav(
         NavigationBarItem(
             selected = true,
             onClick = onAccess,
-            icon = { Icon(Icons.Filled.Security, contentDescription = "Access") },
-            label = { Text("Access") },
+            icon = { Icon(Icons.Filled.Security, contentDescription = accessLabel) },
+            label = { Text(accessLabel) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = Teal,
                 selectedTextColor = Teal,
@@ -580,7 +684,7 @@ private fun PermissionsGrantedPreview() {
             appLock = AppLockPrefs(enabled = true, idleTimeoutMs = 60_000L, redactBody = true),
             onOpenNotifSettings = {}, onRequestBatteryExemption = {},
             onLockEnabledChange = {}, onIdleTimeoutChange = {}, onRedactBodyChange = {},
-            onNavStatus = {}, onNavApps = {}, onNavBroker = {},
+            onNavStatus = {}, onNavApps = {}, onNavBroker = {}, onNavLanguage = {},
         )
     }
 }
@@ -595,7 +699,7 @@ private fun PermissionsActionNeededPreview() {
             appLock = AppLockPrefs(enabled = false),
             onOpenNotifSettings = {}, onRequestBatteryExemption = {},
             onLockEnabledChange = {}, onIdleTimeoutChange = {}, onRedactBodyChange = {},
-            onNavStatus = {}, onNavApps = {}, onNavBroker = {},
+            onNavStatus = {}, onNavApps = {}, onNavBroker = {}, onNavLanguage = {},
         )
     }
 }

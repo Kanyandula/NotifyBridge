@@ -74,6 +74,39 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.TlsMode
+import com.nyasa.notifybridge.localization.Dictionary
+import com.nyasa.notifybridge.localization.back
+import com.nyasa.notifybridge.localization.certificateHeading
+import com.nyasa.notifybridge.localization.comingSoon
+import com.nyasa.notifybridge.localization.fieldDevice
+import com.nyasa.notifybridge.localization.fieldDevicePlaceholder
+import com.nyasa.notifybridge.localization.fieldDeviceSupporting
+import com.nyasa.notifybridge.localization.fieldHost
+import com.nyasa.notifybridge.localization.fieldHostPlaceholder
+import com.nyasa.notifybridge.localization.fieldPassword
+import com.nyasa.notifybridge.localization.fieldPort
+import com.nyasa.notifybridge.localization.fieldPortPlaceholder
+import com.nyasa.notifybridge.localization.fieldUsername
+import com.nyasa.notifybridge.localization.localized
+import com.nyasa.notifybridge.localization.navAccess
+import com.nyasa.notifybridge.localization.navApps
+import com.nyasa.notifybridge.localization.navBroker
+import com.nyasa.notifybridge.localization.navStatus
+import com.nyasa.notifybridge.localization.passwordHide
+import com.nyasa.notifybridge.localization.passwordShow
+import com.nyasa.notifybridge.localization.pinnedCertNote
+import com.nyasa.notifybridge.localization.saveButton
+import com.nyasa.notifybridge.localization.saveButtonSaving
+import com.nyasa.notifybridge.localization.sectionAuthentication
+import com.nyasa.notifybridge.localization.sectionConnection
+import com.nyasa.notifybridge.localization.sectionTls
+import com.nyasa.notifybridge.localization.selectCertFile
+import com.nyasa.notifybridge.localization.testButton
+import com.nyasa.notifybridge.localization.testResultConnected
+import com.nyasa.notifybridge.localization.tlsPinnedButton
+import com.nyasa.notifybridge.localization.tlsSystemCaButton
+import com.nyasa.notifybridge.localization.title
+import com.nyasa.notifybridge.localization.useTls
 import com.nyasa.notifybridge.service.MqttForegroundService
 import com.nyasa.notifybridge.ui.theme.Amber
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
@@ -180,12 +213,12 @@ private fun BrokerContent(
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = Dictionary.Common.back.localized(),
                         tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
                 Text(
-                    text = "Broker",
+                    text = Dictionary.Broker.title.localized(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -204,12 +237,14 @@ private fun BrokerContent(
         bottomBar = {
             Column {
                 if (testResult != null) {
-                    val resultColor = when (testResult) {
-                        "Connected" -> Teal
-                        else -> MaterialTheme.colorScheme.error
-                    }
+                    val isConnected = testResult == "Connected"
+                    val resultColor = if (isConnected) Teal else MaterialTheme.colorScheme.error
+                    val resultDisplay = if (isConnected)
+                        Dictionary.Broker.testResultConnected.localized()
+                    else
+                        testResult
                     Text(
-                        text = testResult,
+                        text = resultDisplay,
                         color = resultColor,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
@@ -233,7 +268,7 @@ private fun BrokerContent(
                             MaterialTheme.colorScheme.primary,
                         ),
                     ) {
-                        Text("Test connection")
+                        Text(Dictionary.Broker.testButton.localized())
                     }
                     Button(
                         onClick = onSave,
@@ -243,7 +278,10 @@ private fun BrokerContent(
                             containerColor = MaterialTheme.colorScheme.primary,
                         ),
                     ) {
-                        Text(if (saving) "Saving…" else "Save")
+                        Text(
+                            if (saving) Dictionary.Broker.saveButtonSaving.localized()
+                            else Dictionary.Broker.saveButton.localized()
+                        )
                     }
                 }
 
@@ -265,35 +303,35 @@ private fun BrokerContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
 
-            FormSection(title = "CONNECTION") {
+            FormSection(title = Dictionary.Broker.sectionConnection.localized()) {
                 MonoTextField(
-                    label = "Host",
+                    label = Dictionary.Broker.fieldHost.localized(),
                     value = config.host,
                     onValueChange = onHostChange,
-                    placeholder = "192.168.1.10",
+                    placeholder = Dictionary.Broker.fieldHostPlaceholder.localized(),
                     keyboardType = KeyboardType.Uri,
                 )
                 Spacer(Modifier.height(8.dp))
                 MonoTextField(
-                    label = "Port",
+                    label = Dictionary.Broker.fieldPort.localized(),
                     value = if (config.port == 0) "" else config.port.toString(),
                     onValueChange = onPortChange,
-                    placeholder = "1883",
+                    placeholder = Dictionary.Broker.fieldPortPlaceholder.localized(),
                     keyboardType = KeyboardType.Number,
                 )
                 Spacer(Modifier.height(8.dp))
                 MonoTextField(
-                    label = "Device name",
+                    label = Dictionary.Broker.fieldDevice.localized(),
                     value = config.deviceName,
                     onValueChange = onDeviceNameChange,
-                    placeholder = "phone",
-                    supportingText = "used in the MQTT topic and Home Assistant entity",
+                    placeholder = Dictionary.Broker.fieldDevicePlaceholder.localized(),
+                    supportingText = Dictionary.Broker.fieldDeviceSupporting.localized(),
                 )
             }
 
-            FormSection(title = "AUTHENTICATION") {
+            FormSection(title = Dictionary.Broker.sectionAuthentication.localized()) {
                 MonoTextField(
-                    label = "Username (optional)",
+                    label = Dictionary.Broker.fieldUsername.localized(),
                     value = config.username ?: "",
                     onValueChange = onUsernameChange,
                     leadingIcon = {
@@ -306,7 +344,7 @@ private fun BrokerContent(
                 OutlinedTextField(
                     value = config.password ?: "",
                     onValueChange = onPasswordChange,
-                    label = { Text("Password (optional)", fontFamily = FontFamily.Monospace) },
+                    label = { Text(Dictionary.Broker.fieldPassword.localized(), fontFamily = FontFamily.Monospace) },
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
                     ),
@@ -323,9 +361,9 @@ private fun BrokerContent(
                                 else
                                     Icons.Filled.VisibilityOff,
                                 contentDescription = if (passwordVisible)
-                                    "Hide password"
+                                    Dictionary.Broker.passwordHide.localized()
                                 else
-                                    "Show password",
+                                    Dictionary.Broker.passwordShow.localized(),
                                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             )
                         }
@@ -340,14 +378,14 @@ private fun BrokerContent(
                 )
             }
 
-            FormSection(title = "TLS") {
+            FormSection(title = Dictionary.Broker.sectionTls.localized()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Use TLS",
+                        text = Dictionary.Broker.useTls.localized(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -368,7 +406,7 @@ private fun BrokerContent(
 
                     // Segmented control: System CA | Pinned (disabled, Coming soon)
                     Text(
-                        text = "Certificate",
+                        text = Dictionary.Broker.certificateHeading.localized(),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         letterSpacing = 0.5.sp,
@@ -396,7 +434,10 @@ private fun BrokerContent(
                             ),
                             shape = RoundedCornerShape(8.dp),
                         ) {
-                            Text("System CA", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                Dictionary.Broker.tlsSystemCaButton.localized(),
+                                style = MaterialTheme.typography.labelMedium,
+                            )
                         }
 
                         // Pinned — disabled, Coming soon
@@ -415,11 +456,11 @@ private fun BrokerContent(
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        "Pinned",
+                                        Dictionary.Broker.tlsPinnedButton.localized(),
                                         style = MaterialTheme.typography.labelMedium,
                                     )
                                     Text(
-                                        "Coming soon",
+                                        Dictionary.Broker.comingSoon.localized(),
                                         style = MaterialTheme.typography.labelSmall,
                                         fontSize = 10.sp,
                                     )
@@ -440,7 +481,7 @@ private fun BrokerContent(
                         // File picker button — only shown when PINNED active (unreachable now)
                         Spacer(Modifier.height(4.dp))
                         TextButton(onClick = onPickCertFile) {
-                            Text("Select CA/cert file")
+                            Text(Dictionary.Broker.selectCertFile.localized())
                         }
                     }
 
@@ -465,7 +506,7 @@ private fun BrokerContent(
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
-                            text = "Pinned cert verifies your self-signed Mosquitto without disabling validation.",
+                            text = Dictionary.Broker.pinnedCertNote.localized(),
                             style = MaterialTheme.typography.bodySmall,
                             color = Amber,
                         )
@@ -544,33 +585,37 @@ private fun BrokerBottomNav(
     onBroker: () -> Unit,
     onAccess: () -> Unit,
 ) {
+    val statusLabel = Dictionary.Common.navStatus.localized()
+    val appsLabel = Dictionary.Common.navApps.localized()
+    val brokerLabel = Dictionary.Common.navBroker.localized()
+    val accessLabel = Dictionary.Common.navAccess.localized()
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         NavigationBarItem(
             selected = false,
             onClick = onStatus,
-            icon = { Icon(Icons.Filled.Dashboard, contentDescription = "Status") },
-            label = { Text("Status") },
+            icon = { Icon(Icons.Filled.Dashboard, contentDescription = statusLabel) },
+            label = { Text(statusLabel) },
             colors = navItemColors(),
         )
         NavigationBarItem(
             selected = false,
             onClick = onApps,
-            icon = { Icon(Icons.Filled.Apps, contentDescription = "Apps") },
-            label = { Text("Apps") },
+            icon = { Icon(Icons.Filled.Apps, contentDescription = appsLabel) },
+            label = { Text(appsLabel) },
             colors = navItemColors(),
         )
         NavigationBarItem(
             selected = true,
             onClick = onBroker,
-            icon = { Icon(Icons.Filled.Router, contentDescription = "Broker") },
-            label = { Text("Broker") },
+            icon = { Icon(Icons.Filled.Router, contentDescription = brokerLabel) },
+            label = { Text(brokerLabel) },
             colors = navItemColors(),
         )
         NavigationBarItem(
             selected = false,
             onClick = onAccess,
-            icon = { Icon(Icons.Filled.Security, contentDescription = "Access") },
-            label = { Text("Access") },
+            icon = { Icon(Icons.Filled.Security, contentDescription = accessLabel) },
+            label = { Text(accessLabel) },
             colors = navItemColors(),
         )
     }
