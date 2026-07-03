@@ -23,7 +23,6 @@ class OutboxRepositoryImpl @Inject constructor(
         dao.oldestPending(limit).map {
             OutboxItem(it.id, it.topic, it.payload, it.createdAt, it.attemptCount) }
     override suspend fun markPublished(id: Long) = dao.deleteById(id)
-    override suspend fun recordFailure(id: Long) = dao.bumpAttempt(id)
     override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) =
         dao.bumpAttemptOrFail(id, maxAttempts)
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) =

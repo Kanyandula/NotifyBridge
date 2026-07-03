@@ -21,7 +21,6 @@ private class MemOutbox : OutboxRepository {
     override suspend fun enqueue(item: OutboxItem) { items += item.copy(id = ++seq) }
     override suspend fun nextBatch(limit: Int) = items.take(limit)
     override suspend fun markPublished(id: Long) { items.removeAll { it.id == id } }
-    override suspend fun recordFailure(id: Long) {}
     override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) {}
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) {}
     override fun depth(): Flow<Int> = flowOf(items.size)

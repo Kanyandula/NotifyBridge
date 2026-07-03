@@ -50,7 +50,7 @@ class OutboxDaoStatusTest {
     @Test fun markFailedTerminal_changes_status_only() = runBlocking {
         val id = dao.insert(row(attempts = 4))
         dao.markFailedTerminal(id)
-        val rows = dao.allForTest()
+        val rows = dao.oldest(10)
         assertEquals(OutboxStatus.FAILED_TERMINAL.name, rows[0].status)
         assertEquals(4, rows[0].attemptCount)
     }
@@ -58,7 +58,7 @@ class OutboxDaoStatusTest {
     @Test fun bumpAttemptOrFail_increments_and_stays_PENDING_below_threshold() = runBlocking {
         val id = dao.insert(row(attempts = 3))
         dao.bumpAttemptOrFail(id, MAX_PUBLISH_ATTEMPTS)
-        val rows = dao.allForTest()
+        val rows = dao.oldest(10)
         assertEquals(4, rows[0].attemptCount)
         assertEquals(OutboxStatus.PENDING.name, rows[0].status)
     }
@@ -66,7 +66,7 @@ class OutboxDaoStatusTest {
     @Test fun bumpAttemptOrFail_transitions_to_FAILED_TERMINAL_at_threshold() = runBlocking {
         val id = dao.insert(row(attempts = 4))
         dao.bumpAttemptOrFail(id, MAX_PUBLISH_ATTEMPTS)
-        val rows = dao.allForTest()
+        val rows = dao.oldest(10)
         assertEquals(5, rows[0].attemptCount)
         assertEquals(OutboxStatus.FAILED_TERMINAL.name, rows[0].status)
     }
