@@ -1,5 +1,6 @@
 package com.nyasa.notifybridge.domain.usecase
 
+import com.nyasa.notifybridge.domain.MAX_PUBLISH_ATTEMPTS
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
 import com.nyasa.notifybridge.domain.repo.RecentNotificationsRepository
@@ -36,7 +37,11 @@ class DrainOutboxUseCase @Inject constructor(
                 runCatching { recent.recordPublished(item) }
                 outbox.markPublished(item.id)
             } else {
-                outbox.recordFailure(item.id)
+                // Spec §3.2: bump the attempt count and, once the row hits
+                // MAX_PUBLISH_ATTEMPTS, transition it to FAILED_TERMINAL so the
+                // next drain skips it (nextBatch is PENDING-only) instead of
+                // re-failing on the same poison head forever.
+                outbox.recordFailureOrFailTerminal(item.id, MAX_PUBLISH_ATTEMPTS)
                 break
             }
         }

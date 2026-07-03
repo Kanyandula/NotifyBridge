@@ -21,10 +21,13 @@ private class RecordingOutbox : OutboxRepository {
     override suspend fun nextBatch(limit: Int): List<OutboxItem> = emptyList()
     override suspend fun markPublished(id: Long) {}
     override suspend fun recordFailure(id: Long) {}
+    override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) {}
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) {
         pruneCall = PruneCall(nowMs, ttlMs, maxRows)
     }
     override fun depth(): Flow<Int> = flowOf(0)
+    override fun failedDropCount(): Flow<Int> = flowOf(0)
+    override fun pendingCount(): Flow<Int> = flowOf(0)
 }
 
 private class NoopRecent : RecentNotificationsRepository {
