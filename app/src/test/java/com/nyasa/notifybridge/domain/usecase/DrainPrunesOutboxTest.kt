@@ -1,10 +1,9 @@
 package com.nyasa.notifybridge.domain.usecase
 
 import com.nyasa.notifybridge.domain.model.OutboxItem
-import com.nyasa.notifybridge.domain.model.RecentItem
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
-import com.nyasa.notifybridge.domain.repo.RecentNotificationsRepository
 import com.nyasa.notifybridge.fakes.FakeMqttClientManager
+import com.nyasa.notifybridge.fakes.NoopRecentNotificationsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -20,16 +19,13 @@ private class RecordingOutbox : OutboxRepository {
     override suspend fun enqueue(item: OutboxItem) {}
     override suspend fun nextBatch(limit: Int): List<OutboxItem> = emptyList()
     override suspend fun markPublished(id: Long) {}
-    override suspend fun recordFailure(id: Long) {}
+    override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) {}
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) {
         pruneCall = PruneCall(nowMs, ttlMs, maxRows)
     }
     override fun depth(): Flow<Int> = flowOf(0)
-}
-
-private class NoopRecent : RecentNotificationsRepository {
-    override val recent: Flow<List<RecentItem>> = flowOf(emptyList())
-    override suspend fun recordPublished(item: OutboxItem, publishedAt: Long) = Unit
+    override fun failedDropCount(): Flow<Int> = flowOf(0)
+    override fun pendingCount(): Flow<Int> = flowOf(0)
 }
 
 class DrainPrunesOutboxTest {
@@ -37,7 +33,7 @@ class DrainPrunesOutboxTest {
     @Test
     fun drain_calls_pruneExpired_with_spec_constants() = runTest {
         val outbox = RecordingOutbox()
-        DrainOutboxUseCase(outbox, FakeMqttClientManager(), NoopRecent())()
+        DrainOutboxUseCase(outbox, FakeMqttClientManager(), NoopRecentNotificationsRepository())()
 
         val call = outbox.pruneCall
         assertNotNull("pruneExpired was never called", call)

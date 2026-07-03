@@ -31,8 +31,15 @@ class NotifyBridgeDatabaseMigrationTest {
     fun migration_1_2_preserves_outbox_and_creates_recent_table() = runTest {
         createVersion1Database()
 
+        // The @Database is now at v3, so opening a v1 file runs the full
+        // 1→2→3 chain — both migrations must be registered. The v3 step only
+        // adds the outbox `status` column, so the row-count assertions below
+        // (outbox preserved, recent created empty) still hold.
         val db = Room.databaseBuilder(context, NotifyBridgeDatabase::class.java, DB_NAME)
-            .addMigrations(NotifyBridgeMigrations.from1To2)
+            .addMigrations(
+                NotifyBridgeMigrations.from1To2,
+                NotifyBridgeMigrations.from2To3,
+            )
             .build()
 
         assertEquals(1, db.outboxDao().count())

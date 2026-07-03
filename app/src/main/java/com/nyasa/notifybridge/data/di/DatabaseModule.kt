@@ -23,7 +23,10 @@ object DatabaseModule {
     @Provides @Singleton
     fun db(@ApplicationContext c: Context) =
         Room.databaseBuilder(c, NotifyBridgeDatabase::class.java, "notifybridge.db")
-            .addMigrations(NotifyBridgeMigrations.from1To2)
+            .addMigrations(
+                NotifyBridgeMigrations.from1To2,
+                NotifyBridgeMigrations.from2To3,
+            )
             .build()
     @Provides
     fun dao(db: NotifyBridgeDatabase): OutboxDao = db.outboxDao()

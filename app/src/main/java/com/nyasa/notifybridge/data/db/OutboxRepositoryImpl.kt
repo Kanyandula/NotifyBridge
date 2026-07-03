@@ -20,11 +20,14 @@ class OutboxRepositoryImpl @Inject constructor(
         ))
     }
     override suspend fun nextBatch(limit: Int): List<OutboxItem> =
-        dao.oldest(limit).map {
+        dao.oldestPending(limit).map {
             OutboxItem(it.id, it.topic, it.payload, it.createdAt, it.attemptCount) }
     override suspend fun markPublished(id: Long) = dao.deleteById(id)
-    override suspend fun recordFailure(id: Long) = dao.bumpAttempt(id)
+    override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) =
+        dao.bumpAttemptOrFail(id, maxAttempts)
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) =
         dao.prune(cutoff = nowMs - ttlMs, max = maxRows)
     override fun depth(): Flow<Int> = dao.countFlow()
+    override fun failedDropCount(): Flow<Int> = dao.failedDropCountFlow()
+    override fun pendingCount(): Flow<Int> = dao.pendingCountFlow()
 }

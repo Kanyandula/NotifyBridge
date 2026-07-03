@@ -48,6 +48,7 @@ controls, multi-broker fan-out, iOS. These are explicitly out of scope.
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Prompt Doze exemption so the service survives | User-grantable via the Permissions screen |
 | `INTERNET` | MQTT socket to the broker | |
 | `USE_BIOMETRIC` | Local app-lock prompt (§3.8) | Falls back to device PIN/pattern via `KeyguardManager` where biometric is unavailable |
+| `android:allowBackup="false"` (manifest) | Outbox contains notification bodies (OTPs, bank alerts); excluded from system backup | Settings + allow-list are non-sensitive but kept off-backup in v1 for simplicity. A `BackupAgent` rule could be added later if user-restorable settings are wanted. |
 
 `MqttForegroundService` declares
 `android:foregroundServiceType="connectedDevice"` (see §3.3).
@@ -123,6 +124,12 @@ reflects "notification access lost" and publishing stops.
 
 `OutboxEntity(id, topic, jsonPayload, createdAt, attemptCount, status)`.
 
+`status` is one of:
+  - `PENDING` — row awaits publish; eligible for next drain cycle.
+  - `FAILED_TERMINAL` — row failed `MAX_PUBLISH_ATTEMPTS` consecutive
+    publish attempts (see §3.3) and is excluded from future drain cycles.
+    Pruned by the same 7-day TTL / 5,000-row cap as `PENDING` rows.
+
 - Successful publish → row deleted.
 - Bounded: rows older than 7 days pruned; hard cap of 5,000 rows, oldest
   pruned first. Prevents unbounded growth if the broker is long-unreachable.
@@ -138,9 +145,15 @@ reflects "notification access lost" and publishing stops.
 > publish failure for diagnostics only. Redelivery is *connection-level*:
 > `DrainOutboxUseCase` stops on first failure to preserve FIFO order, and
 > the next drain is triggered by the HiveMQ auto-reconnect backoff plus the
-> three drain triggers (enqueue, connect, 15-min worker). A row whose
-> publish deterministically fails head-of-line-blocks newer items until the
-> 7-day TTL/5,000-row cap evicts it — accepted v1 residual.
+> three drain triggers (enqueue, connect, 15-min worker).
+>
+> **Head-of-line protection (locked):** when a row's `attemptCount`
+> reaches `MAX_PUBLISH_ATTEMPTS` (see §3.3), the row is marked
+> `FAILED_TERMINAL` and the drain skips it on subsequent cycles. This
+> prevents one deterministically-failing payload from blocking the queue
+> until eviction. `FAILED_TERMINAL` rows are counted in Diagnostics
+> (`failedDropCount`, see §3.5) and pruned by the same TTL/cap as
+> `PENDING` rows.
 >
 > **Correction (post-impl, remediation I):** The three drain triggers
 > (worker, FGS `onCreate`, FGS `onStartCommand`) are serialised by a
@@ -170,7 +183,20 @@ It runs as `foregroundServiceType="connectedDevice"` (firm decision — see
   common HA setup) — implemented as user-supplied CA/cert pinning, *not* a
   blanket trust-all, so a misconfigured toggle can't silently downgrade to
   no validation.
-- Auto-reconnect with exponential backoff.
+
+  **Pinned cert UX (locked):** the cert is supplied via a file picker in
+  the Broker Setup screen (SAF `ACTION_OPEN_DOCUMENT`, MIME
+  `application/x-pem-file` with `*/*` fallback). The selected PEM is read
+  once at picker time and stored in DataStore as a base64-encoded string.
+  No paste-from-clipboard (PEM strings are multi-line and error-prone to
+  paste). No URL fetch (adds a network dependency at TLS-setup time which
+  is the wrong order of operations).
+- Auto-reconnect with exponential backoff. Curve (locked): initial `1s`,
+  doubling to a `60s` cap, no retry limit. (HiveMQ client default; named
+  here so behaviour-pinning tests have an authority to assert against.)
+- Per-row publish cap (locked): `MAX_PUBLISH_ATTEMPTS = 5` consecutive
+  failures → row transitions to `FAILED_TERMINAL` (see §3.2 head-of-line
+  protection).
 - Publishes at QoS 1.
 - **Last Will & Testament** on `notifybridge/<device>/status` →
   `offline`; on connect publishes `online` (retained) to the same topic.
@@ -219,7 +245,14 @@ requirement; revisit only if a concrete need appears.
 - **Allow-list:** list of installed launchable apps with per-app toggles.
   **Default is empty — nothing is forwarded until the user opts apps in**
   (deliberate: avoids forwarding OTP/banking content by default).
-- **Diagnostics:** connection state, outbox depth, recently forwarded items.
+- **Diagnostics:** connection state, outbox depth (`PENDING` row count),
+  `failedDropCount` (`FAILED_TERMINAL` total since first launch), recently
+  forwarded items. State is exposed via:
+  - `connectionState: StateFlow<ConnectionState>` from `MqttClientManager`
+  - `outboxDepth: StateFlow<Int>` from `OutboxDao`
+  - `failedDropCount: StateFlow<Int>` from `OutboxDao`
+  - `events: SharedFlow<OutboxEvent>` for transient errors / drops /
+    drain completions — Diagnostics UI and instrumented tests both subscribe.
   Recent items show app + title only; the **body is redacted by default**
   and revealed per-item after an auth challenge (§3.8). The published MQTT
   payload is never redacted — this is a UI-only protection.
@@ -328,6 +361,7 @@ HA: discovery sensor updates from state/attributes topic;
 |---|---|
 | Broker unreachable | Backoff reconnect; items stay in outbox; UI shows disconnected; LWT marks HA entity offline. |
 | Publish not acked | Row retained, `attemptCount++`, backoff retry. <br/>**Correction (post-impl, remediation J):** `attemptCount` is incremented for diagnostics only; the drain stops on first failure to preserve FIFO order and resumes when the next drain trigger (enqueue / connect / 15-min worker) fires after HiveMQ's connection-level auto-reconnect backoff. See §3.2. |
+| Service killed mid-publish | Row stays in outbox (deleted only on broker ack); on service restart, drain-on-connect republishes. QoS 1 → HA receives at-least-once; HA automations must be idempotent (use the JSON `post_time` attribute as the deduplication key). |
 | Outbox growth | 7-day TTL + 5,000-row cap, oldest pruned. |
 | Missing notification extras | Null fields, never throw. |
 | Notification access revoked | UI reflects loss; publishing stops; no crash. |

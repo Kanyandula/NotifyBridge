@@ -8,7 +8,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/nyasa/notifybridge/data/mqtt/HiveMqClientManager.kt"
-            line="75"
+            line="76"
             column="17"/>
     </issue>
 
@@ -19,7 +19,7 @@
         errorLine2="        ~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="16"
+            line="17"
             column="9"/>
     </issue>
 
@@ -30,30 +30,8 @@
         errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/nyasa/notifybridge/ui/permissions/PermissionsScreen.kt"
-            line="117"
+            line="155"
             column="33"/>
-    </issue>
-
-    <issue
-        id="ForegroundServiceType"
-        message="To call `Service.startForeground()`, the `&lt;service>` element of manifest file must have the `foregroundServiceType` attribute specified"
-        errorLine1="            startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)"
-        errorLine2="            ~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/nyasa/notifybridge/service/MqttForegroundService.kt"
-            line="57"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="ForegroundServiceType"
-        message="To call `Service.startForeground()`, the `&lt;service>` element of manifest file must have the `foregroundServiceType` attribute specified"
-        errorLine1="        } else startForeground(1, n)"
-        errorLine2="               ~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/nyasa/notifybridge/service/MqttForegroundService.kt"
-            line="58"
-            column="16"/>
     </issue>
 
     <issue
@@ -96,7 +74,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="118"
+            line="127"
             column="31"/>
     </issue>
 
@@ -107,7 +85,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="119"
+            line="128"
             column="20"/>
     </issue>
 
@@ -179,7 +157,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.05.01"
+        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.06.01"
         errorLine1="compose-bom = &quot;2024.12.01&quot;"
         errorLine2="              ~~~~~~~~~~~~">
         <location
@@ -190,7 +168,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.05.01"
+        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.06.01"
         errorLine1="compose-bom = &quot;2024.12.01&quot;"
         errorLine2="              ~~~~~~~~~~~~">
         <location
@@ -201,7 +179,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.05.01"
+        message="A newer version of androidx.compose:compose-bom than 2024.12.01 is available: 2026.06.01"
         errorLine1="compose-bom = &quot;2024.12.01&quot;"
         errorLine2="              ~~~~~~~~~~~~">
         <location
@@ -410,7 +388,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.10.0"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.11.0"
         errorLine1="lifecycle = &quot;2.8.7&quot;"
         errorLine2="            ~~~~~~~">
         <location
@@ -421,7 +399,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.10.0"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.11.0"
         errorLine1="lifecycle = &quot;2.8.7&quot;"
         errorLine2="            ~~~~~~~">
         <location
@@ -432,7 +410,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.10.0"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.11.0"
         errorLine1="lifecycle = &quot;2.8.7&quot;"
         errorLine2="            ~~~~~~~">
         <location
@@ -443,7 +421,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.10.0"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0"
         errorLine1="lifecycle = &quot;2.8.7&quot;"
         errorLine2="            ~~~~~~~">
         <location
@@ -454,7 +432,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.10.0"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0"
         errorLine1="lifecycle = &quot;2.8.7&quot;"
         errorLine2="            ~~~~~~~">
         <location
@@ -465,7 +443,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.10.0"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0"
         errorLine1="lifecycle = &quot;2.8.7&quot;"
         errorLine2="            ~~~~~~~">
         <location
@@ -476,7 +454,40 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.18.0"
+        message="A newer version of org.robolectric:robolectric than 4.14 is available: 4.14.1"
+        errorLine1="robolectric = &quot;4.14&quot;"
+        errorLine2="              ~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="17"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of org.robolectric:robolectric than 4.14 is available: 4.14.1"
+        errorLine1="robolectric = &quot;4.14&quot;"
+        errorLine2="              ~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="17"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of org.robolectric:robolectric than 4.14 is available: 4.14.1"
+        errorLine1="robolectric = &quot;4.14&quot;"
+        errorLine2="              ~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="17"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.0"
         errorLine1="androidx-core = { module = &quot;androidx.core:core-ktx&quot;, version = &quot;1.15.0&quot; }"
         errorLine2="                                                               ~~~~~~~~">
         <location
@@ -487,7 +498,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.18.0"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.0"
         errorLine1="androidx-core = { module = &quot;androidx.core:core-ktx&quot;, version = &quot;1.15.0&quot; }"
         errorLine2="                                                               ~~~~~~~~">
         <location
@@ -498,7 +509,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.18.0"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.0"
         errorLine1="androidx-core = { module = &quot;androidx.core:core-ktx&quot;, version = &quot;1.15.0&quot; }"
         errorLine2="                                                               ~~~~~~~~">
         <location
@@ -575,7 +586,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-navigation-compose = { module = &quot;androidx.hilt:hilt-navigation-compose&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                                                        ~~~~~~~">
         <location
@@ -586,7 +597,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-navigation-compose = { module = &quot;androidx.hilt:hilt-navigation-compose&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                                                        ~~~~~~~">
         <location
@@ -597,7 +608,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-navigation-compose = { module = &quot;androidx.hilt:hilt-navigation-compose&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                                                        ~~~~~~~">
         <location
@@ -608,7 +619,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-work = { module = &quot;androidx.hilt:hilt-work&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                            ~~~~~~~">
         <location
@@ -619,7 +630,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-work = { module = &quot;androidx.hilt:hilt-work&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                            ~~~~~~~">
         <location
@@ -630,7 +641,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-work = { module = &quot;androidx.hilt:hilt-work&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                            ~~~~~~~">
         <location
@@ -641,7 +652,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-work-compiler = { module = &quot;androidx.hilt:hilt-compiler&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                                         ~~~~~~~">
         <location
@@ -652,7 +663,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-work-compiler = { module = &quot;androidx.hilt:hilt-compiler&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                                         ~~~~~~~">
         <location
@@ -663,7 +674,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.3.0"
+        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.4.0"
         errorLine1="hilt-work-compiler = { module = &quot;androidx.hilt:hilt-compiler&quot;, version = &quot;1.2.0&quot; }"
         errorLine2="                                                                         ~~~~~~~">
         <location
@@ -679,7 +690,7 @@
         errorLine2="                                                                    ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="53"
+            line="54"
             column="69"/>
     </issue>
 
@@ -690,7 +701,7 @@
         errorLine2="                                                                    ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="53"
+            line="54"
             column="69"/>
     </issue>
 
@@ -701,17 +712,6 @@
         errorLine2="                                                                    ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="53"
-            column="69"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
-        errorLine1="androidx-test-runner = { module = &quot;androidx.test:runner&quot;, version = &quot;1.6.2&quot; }"
-        errorLine2="                                                                    ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
             line="54"
             column="69"/>
     </issue>
@@ -723,7 +723,7 @@
         errorLine2="                                                                    ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="54"
+            line="55"
             column="69"/>
     </issue>
 
@@ -734,7 +734,18 @@
         errorLine2="                                                                    ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="54"
+            line="55"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="androidx-test-runner = { module = &quot;androidx.test:runner&quot;, version = &quot;1.6.2&quot; }"
+        errorLine2="                                                                    ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="55"
             column="69"/>
     </issue>
 
@@ -745,7 +756,7 @@
         errorLine2="                                                                      ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="55"
+            line="56"
             column="71"/>
     </issue>
 
@@ -756,7 +767,7 @@
         errorLine2="                                                                      ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="55"
+            line="56"
             column="71"/>
     </issue>
 
@@ -767,7 +778,7 @@
         errorLine2="                                                                      ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="55"
+            line="56"
             column="71"/>
     </issue>
 
@@ -800,7 +811,7 @@
         errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="118"
+            line="127"
             column="31"/>
     </issue>
 
@@ -811,7 +822,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="119"
+            line="128"
             column="20"/>
     </issue>
 

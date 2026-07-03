@@ -10,4 +10,6 @@ data class OutboxEntity(
     val payload: String,
     val createdAt: Long,
     val attemptCount: Int = 0,
+    /** Spec §3.2 — one of [OutboxStatus] values. New in schema v3. */
+    val status: String = OutboxStatus.PENDING.name,
 )
