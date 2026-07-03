@@ -21,13 +21,13 @@ class DrainOutboxHeadOfLineTest {
 
         var failTerminalCall: FailTerminalCall? = null
 
-        override suspend fun enqueue(item: OutboxItem) {}
+        override suspend fun enqueue(item: OutboxItem) = Unit
         override suspend fun nextBatch(limit: Int): List<OutboxItem> = batch
-        override suspend fun markPublished(id: Long) {}
+        override suspend fun markPublished(id: Long) = Unit
         override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) {
             failTerminalCall = FailTerminalCall(id, maxAttempts)
         }
-        override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) {}
+        override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) = Unit
         override fun depth(): Flow<Int> = flowOf(0)
         override fun failedDropCount(): Flow<Int> = flowOf(0)
         override fun pendingCount(): Flow<Int> = flowOf(0)

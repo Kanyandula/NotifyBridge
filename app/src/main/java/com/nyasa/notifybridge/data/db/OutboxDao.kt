@@ -7,6 +7,7 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
+@Suppress("TooManyFunctions") // Room DAO — each function is a single trivial @Query/@Insert
 interface OutboxDao {
     @Insert suspend fun insert(e: OutboxEntity): Long
     @Query("SELECT * FROM outbox ORDER BY id ASC LIMIT :limit")
