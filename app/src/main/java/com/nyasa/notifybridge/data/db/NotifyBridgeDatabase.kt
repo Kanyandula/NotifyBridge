@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
         OutboxEntity::class,
         RecentNotificationEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class NotifyBridgeDatabase : RoomDatabase() {
