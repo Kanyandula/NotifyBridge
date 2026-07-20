@@ -27,7 +27,6 @@ class OutboxRepositoryImpl @Inject constructor(
         dao.bumpAttemptOrFail(id, maxAttempts)
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) =
         dao.prune(cutoff = nowMs - ttlMs, max = maxRows)
-    override fun depth(): Flow<Int> = dao.countFlow()
     override fun failedDropCount(): Flow<Int> = dao.failedDropCountFlow()
     override fun pendingCount(): Flow<Int> = dao.pendingCountFlow()
 }

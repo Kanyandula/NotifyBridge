@@ -23,7 +23,6 @@ private class RecordingOutbox : OutboxRepository {
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) {
         pruneCall = PruneCall(nowMs, ttlMs, maxRows)
     }
-    override fun depth(): Flow<Int> = flowOf(0)
     override fun failedDropCount(): Flow<Int> = flowOf(0)
     override fun pendingCount(): Flow<Int> = flowOf(0)
 }
