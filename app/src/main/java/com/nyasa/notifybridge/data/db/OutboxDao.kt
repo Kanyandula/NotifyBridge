@@ -14,7 +14,6 @@ interface OutboxDao {
     suspend fun oldest(limit: Int): List<OutboxEntity>
     @Query("DELETE FROM outbox WHERE id = :id") suspend fun deleteById(id: Long)
     @Query("SELECT COUNT(*) FROM outbox") suspend fun count(): Int
-    @Query("SELECT COUNT(*) FROM outbox") fun countFlow(): Flow<Int>
     @Query("DELETE FROM outbox WHERE createdAt < :cutoff")
     suspend fun deleteOlderThan(cutoff: Long)
     @Query("DELETE FROM outbox WHERE id NOT IN (SELECT id FROM outbox ORDER BY id DESC LIMIT :max)")

@@ -14,7 +14,6 @@ interface OutboxRepository {
     suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int)
 
     suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int)
-    fun depth(): Flow<Int>
 
     /** Spec §3.5 Diagnostics — live count of `FAILED_TERMINAL` (dropped) rows. */
     fun failedDropCount(): Flow<Int>

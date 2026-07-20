@@ -47,6 +47,10 @@ android {
         abortOnError = true
         warningsAsErrors = true
         checkDependencies = true
+        // Non-actionable, network-driven nag that fails the build whenever a
+        // newer AGP publishes upstream — can't be baselined (version string
+        // moves each release). Disable rather than chase it.
+        disable += "AndroidGradlePluginVersion"
         baseline = file("lint-baseline.xml")
         htmlReport = true
         xmlReport = true

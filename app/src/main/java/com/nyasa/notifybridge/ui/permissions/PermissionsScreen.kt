@@ -105,7 +105,6 @@ import com.nyasa.notifybridge.localization.timeout30s
 import com.nyasa.notifybridge.localization.timeout5m
 import com.nyasa.notifybridge.localization.title
 import com.nyasa.notifybridge.ui.theme.Amber
-import com.nyasa.notifybridge.ui.theme.ErrorRed
 import com.nyasa.notifybridge.ui.theme.NotifyBridgeTheme
 import com.nyasa.notifybridge.ui.theme.Teal
 
