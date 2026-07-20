@@ -149,7 +149,7 @@ fun StatusScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun StatusContent(
+internal fun StatusContent(
     state: StatusUiState,
     recentItems: List<RecentItem>,
     revealedIds: Set<Long>,

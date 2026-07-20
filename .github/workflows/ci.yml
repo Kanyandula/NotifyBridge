@@ -34,7 +34,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build + unit tests + quality gate
-        run: ./gradlew assembleDebug testDebugUnitTest detekt lintDebug --continue --stacktrace --no-daemon
+        run: ./gradlew assembleDebug testDebugUnitTest verifyRoborazziDebug detekt lintDebug --continue --stacktrace --no-daemon
 
       - name: Upload reports
         if: always()
@@ -49,6 +49,7 @@ jobs:
             app/build/reports/detekt/detekt.sarif
             app/build/reports/tests/testDebugUnitTest/
             app/build/test-results/testDebugUnitTest/*.xml
+            app/build/outputs/roborazzi/
           if-no-files-found: ignore
           retention-days: 14
 
