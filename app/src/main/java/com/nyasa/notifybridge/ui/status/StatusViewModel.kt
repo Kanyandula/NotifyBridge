@@ -38,7 +38,9 @@ class StatusViewModel @Inject constructor(
 
     val uiState: StateFlow<StatusUiState> = combine(
         mqtt.connectionState,
-        outbox.depth(),
+        // Drainable depth only — excludes FAILED_TERMINAL poison rows, which
+        // depth() would count forever even though they never publish (spec §3.2).
+        outbox.pendingCount(),
         settings.brokerConfig,
         settings.allowList,
         settings.appLock,
