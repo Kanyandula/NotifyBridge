@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.roborazzi)
     id("nyasa.localization-codegen")
 }
 android {
@@ -120,6 +121,11 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.rule)
+    testImplementation(libs.compose.test.junit)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.junit)
