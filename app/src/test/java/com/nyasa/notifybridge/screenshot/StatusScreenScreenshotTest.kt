@@ -53,8 +53,8 @@ class StatusScreenScreenshotTest : ScreenshotTest() {
             appLock = AppLockPrefs(redactBody = redact),
         )
 
-    private fun shoot(name: String, s: StatusUiState, items: List<RecentItem>) {
-        setScreen {
+    private fun shoot(name: String, s: StatusUiState, items: List<RecentItem>, fontScale: Float = 1f) {
+        setScreen(fontScale = fontScale) {
             StatusContent(
                 state = s,
                 recentItems = items,
@@ -82,4 +82,8 @@ class StatusScreenScreenshotTest : ScreenshotTest() {
 
     @Test
     fun redacted() = shoot("redacted", state(ConnectionState.CONNECTED, depth = 1, redact = true), recents)
+
+    @Test
+    fun connectedLargeFont() =
+        shoot("connected_largeFont", state(ConnectionState.CONNECTED, depth = 4), recents, fontScale = 1.5f)
 }

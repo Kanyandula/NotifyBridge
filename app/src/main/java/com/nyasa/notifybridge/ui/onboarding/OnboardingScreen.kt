@@ -103,7 +103,7 @@ fun OnboardingScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun OnboardingContent(
+internal fun OnboardingContent(
     state: OnboardingUiState,
     onGrantAccess: () -> Unit,
     onConfigureBroker: () -> Unit,
