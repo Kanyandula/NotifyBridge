@@ -261,6 +261,31 @@ reusing the Phase-1 harness with no new infrastructure.
 copy (not key-echo) and large-font surfaces wrapping/clipping. All 9 new Mac-recorded
 baselines again verified unchanged on Linux CI.
 
+## Phase 3 — Remaining screens — <branch feat/screenshot-testing-phase3>
+
+**Goal:** complete screen-level coverage (Apps, Broker, Language) and settle the
+two operational switches from the plan.
+
+**Steps taken:**
+1. Promoted `AppsContent`, `BrokerContent`, `LanguageSettingsContent`
+   `private → internal`; refreshed their detekt `LongMethod` baseline IDs.
+2. New tests/baselines: Apps (populated / empty), Broker (empty /
+   filled+TLS+connected), Language (system-default / French). Fixtures mirror the
+   existing `@Preview` data; `icons = emptyMap()` keeps Apps deterministic.
+3. `recordRoborazziDebug` → **20 baselines total** (was 14). Full local gate green.
+
+**Operational-switch decisions:**
+- **CI-side baseline recording — deliberately skipped.** Phases 1–2 proved Mac↔Linux
+  rendering is stable (baselines recorded locally verified unchanged on CI), so
+  record-local / verify-CI is sufficient. Building a CI-record workflow would be
+  infrastructure we don't need; revisit only if a future run diffs on fonts.
+- **Branch protection — owner action (not code).** Making `verifyRoborazziDebug` a
+  *required* check is a GitHub repo setting (Settings → Branches → protect `main` →
+  require the "Build, unit tests, detekt, lint" status check). Left to the repo owner.
+
+**Outcome:** all 7 screens now have screen-level baselines (20 total), gating every PR
+via the existing JVM job.
+
 ## Recurring lessons
 
 - **detekt/lint baselines are signature/import-string keyed.** Any visibility,
