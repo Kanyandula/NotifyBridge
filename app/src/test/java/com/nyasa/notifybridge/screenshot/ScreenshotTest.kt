@@ -3,7 +3,9 @@ package com.nyasa.notifybridge.screenshot
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Density
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.nyasa.notifybridge.localization.AssetJsonLanguage
@@ -46,11 +48,19 @@ abstract class ScreenshotTest {
         TimeZone.setDefault(TimeZone.getTimeZone("Europe/Dublin"))
     }
 
-    protected fun setScreen(body: @Composable () -> Unit) {
+    protected fun setScreen(
+        languageTag: String = "en",
+        fontScale: Float = 1f,
+        body: @Composable () -> Unit,
+    ) {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
-        val english = AssetJsonLanguage(tag = "en", context = ctx)
+        val language = AssetJsonLanguage(tag = languageTag, context = ctx)
         compose.setContent {
-            CompositionLocalProvider(LocalLanguage provides english) {
+            val base = LocalDensity.current
+            CompositionLocalProvider(
+                LocalLanguage provides language,
+                LocalDensity provides Density(base.density, fontScale),
+            ) {
                 NotifyBridgeTheme { body() }
             }
         }

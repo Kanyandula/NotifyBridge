@@ -167,7 +167,7 @@ fun PermissionsScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun PermissionsContent(
+internal fun PermissionsContent(
     notifGranted: Boolean,
     batteryExempt: Boolean,
     appLock: AppLockPrefs,
