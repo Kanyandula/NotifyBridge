@@ -92,7 +92,7 @@ fun AppsScreen(nav: NavHostController) {
 }
 
 @Composable
-private fun AppsContent(
+internal fun AppsContent(
     rows: List<AppRow>,
     query: String,
     icons: Map<String, android.graphics.drawable.Drawable?>,

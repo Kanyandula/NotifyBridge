@@ -63,7 +63,7 @@ private data class LanguageOption(
 )
 
 @Composable
-private fun LanguageSettingsContent(
+internal fun LanguageSettingsContent(
     currentTag: String?,
     onPick: (String?) -> Unit,
     onBack: () -> Unit,

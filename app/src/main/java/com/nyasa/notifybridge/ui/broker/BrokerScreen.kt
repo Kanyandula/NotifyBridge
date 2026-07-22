@@ -178,7 +178,7 @@ fun BrokerScreen(nav: NavHostController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BrokerContent(
+internal fun BrokerContent(
     config: BrokerConfig,
     testResult: String?,
     saving: Boolean,
