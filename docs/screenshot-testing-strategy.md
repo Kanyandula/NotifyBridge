@@ -191,3 +191,83 @@ Upload `app/build/outputs/roborazzi/**` (diff images) on failure alongside exist
 2. Per-screen state enums for empty/error preview gaps.
 3. Any infinite animations in the render path.
 4. Phase-1 baseline-record ownership (local vs CI-recorded).
+
+---
+
+# Execution log
+
+Record of how each phase was actually carried out (the sections above are the
+plan; this is what shipped). Newest last.
+
+## Phase 1 — Status PoC — merged 2026-07-20 (PR #6, commit 08a4924)
+
+**Goal:** prove Roborazzi end-to-end on one screen and gate CI on it.
+
+**Steps taken:**
+1. Added Roborazzi `1.32.0` to the version catalog (3 libs + plugin); applied the
+   plugin in root (`apply false`) + `:app`; added the Compose BOM to the `test`
+   config so `ui-test-junit4` resolves on the JVM.
+2. Promoted `StatusContent` `private → internal` (the public `StatusScreen(nav)`
+   pulls in Hilt/Nav and isn't renderable from `test/`).
+3. Wrote the shared `ScreenshotTest` harness: `@RunWith(RobolectricTestRunner)`,
+   `@GraphicsMode(NATIVE)`, `@Config(Pixel5, sdk 34)`; pins `Locale.US` +
+   `Europe/Dublin`; injects a real English `AssetJsonLanguage` (the default
+   `LocalLanguage` = `KeyEchoLanguage` renders i18n keys, not text).
+4. `StatusScreenScreenshotTest`: 5 baselines — all four `ConnectionState` chips
+   (CONNECTED/CONNECTING/ERROR/DISCONNECTED) + redacted-recent. Fixtures mirror the
+   existing `@Preview` data.
+5. `recordRoborazziDebug` → committed 5 PNGs under `app/src/test/screenshots/`.
+6. Wired `verifyRoborazziDebug` into the CI `build-and-test` gradle line; upload
+   `roborazzi/` diff images on failure.
+
+**Gotchas hit:**
+- Promoting to `internal` changed the detekt `LongMethod` **baseline ID** (IDs embed
+  the full signature) → the finding resurfaced. Fixed by editing the ID string in
+  both `config/detekt/baseline*.xml`. (Same class of fragility as import-order IDs.)
+- Long `RecentItem(...)` fixture lines tripped `ArgumentListWrapping` → wrapped per-arg.
+
+**Determinism:** times render from fixed `postTime` + pinned locale/tz; icons resolve
+to null under Robolectric (packages not installed) → deterministic fallback; no
+network images in the app.
+
+**Outcome:** all local gates green (~14s added, no emulator). **Key finding:** the
+macOS-recorded baselines **passed unchanged on Linux CI** — cross-platform font
+rendering was stable, so no CI-side re-recording was needed.
+
+## Phase 2 — High-risk UI + variants — merged 2026-07-22 (PR #7, commit 6166af5)
+
+**Goal:** cover the setup/security screens and add the two cross-cutting checks,
+reusing the Phase-1 harness with no new infrastructure.
+
+**Steps taken:**
+1. Promoted `PermissionsContent` and `OnboardingContent` `private → internal`.
+   (`LockedScreen(onUnlock)` was already public — rendered directly, no promotion.)
+2. Generalized `ScreenshotTest.setScreen` with `languageTag` (default `en`) and
+   `fontScale` (default `1f`) knobs; font scaling via
+   `LocalDensity provides Density(base.density, fontScale)`.
+3. New tests/baselines: Locked (1: unlock prompt), Onboarding (3: GRANT_ACCESS /
+   CONNECT_BROKER / CHOOSE_APPS), Permissions (2: all-granted / action-needed).
+4. Cross-cutting variants: 1.5× large-font on Status + Permissions; French on the
+   settings-dense Permissions screen (verified `fr/strings.json` exists).
+5. `recordRoborazziDebug` → **14 baselines total** (was 5).
+
+**Gotchas hit:**
+- Same detekt baseline-ID break for the two promoted content fns → refreshed IDs.
+- The Permissions test helper hit `LongParameterList` (>6 params) → collapsed the
+  three permission-state params into one `granted: Boolean` (maps to the two preview
+  states), then `MultiLineIfElse` required braces on the resulting if/else.
+
+**Outcome:** all local gates green; visually confirmed French renders real localised
+copy (not key-echo) and large-font surfaces wrapping/clipping. All 9 new Mac-recorded
+baselines again verified unchanged on Linux CI.
+
+## Recurring lessons
+
+- **detekt/lint baselines are signature/import-string keyed.** Any visibility,
+  signature, or import edit to a baselined symbol breaks its suppression; refresh the
+  ID string in both `baseline.xml` and `baseline-debug.xml` (surgical `sed`, verifying
+  the token is unique first).
+- **Record locally, verify on CI works** for this project — Mac↔Linux rendering has
+  been stable across both phases. Revisit only if a future run diffs on fonts.
+- **Adding a screen is now mechanical:** promote its `*Content` to `internal`,
+  subclass `ScreenshotTest`, `captureRoboImage(...)`, `recordRoborazziDebug`, commit.
