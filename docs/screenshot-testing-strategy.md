@@ -279,9 +279,12 @@ two operational switches from the plan.
   rendering is stable (baselines recorded locally verified unchanged on CI), so
   record-local / verify-CI is sufficient. Building a CI-record workflow would be
   infrastructure we don't need; revisit only if a future run diffs on fonts.
-- **Branch protection — owner action (not code).** Making `verifyRoborazziDebug` a
-  *required* check is a GitHub repo setting (Settings → Branches → protect `main` →
-  require the "Build, unit tests, detekt, lint" status check). Left to the repo owner.
+- **Branch protection — enabled 2026-07-23.** `main` now requires the
+  "Build, unit tests, detekt, lint" status check (which runs `verifyRoborazziDebug`),
+  so a PR that changes any screen's pixels can't merge until baselines are updated.
+  "Android instrumented tests (API 28)" is deliberately NOT required (flaky emulator),
+  and admin bypass is left on for emergencies. Force-push and deletion of `main` are
+  disabled; a pull request is required to merge.
 
 **Outcome:** all 7 screens now have screen-level baselines (20 total), gating every PR
 via the existing JVM job.
