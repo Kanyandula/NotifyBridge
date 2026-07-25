@@ -150,17 +150,25 @@ appears automatically after the first publish.
 
 ## Testing
 
-- **JVM unit tests** — `app/src/test/` (~21 files): notification mapping
+- **JVM unit tests** — `app/src/test/` (~28 files): notification mapping
   (`MessagingStyle`, body priority chain), dedup/debounce, outbox
   enqueue/drain/prune, discovery payload, app-lock idle timeout, settings
   parsing, plus ViewModel tests for Broker / Apps / Onboarding.
+- **Screenshot tests** — `app/src/test/java/.../screenshot/` (7 test classes,
+  20 goldens in `app/src/test/screenshots/`): Roborazzi on Robolectric,
+  pinned to Pixel 5 / SDK 34 with fixed locale and timezone. Covers Status,
+  Apps, Broker, Locked, Permissions, Onboarding, and Language settings,
+  including French-locale and large-font variants. Record new goldens with
+  `./gradlew :app:recordRoborazziDebug`; verify with `verifyRoborazziDebug`.
+  Rationale and the Paparazzi comparison are in
+  [`docs/screenshot-testing-strategy.md`](docs/screenshot-testing-strategy.md).
 - **Instrumented tests** — `app/src/androidTest/` (~6 files): Room DAO tests
   (`OutboxDaoTest`), `BiometricAuthenticatorTest`, Hilt graph smoke test,
   locked-screen UI test. Runner: `HiltTestRunner`.
 - The instrumented suite **does not** exercise the live forwarding path
   (FGS / BootReceiver removed from debug APK); that's covered by the device
   checklist below.
-- **CI:** [![CI](https://github.com/Kanyandula/NotifyBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Kanyandula/NotifyBridge/actions/workflows/ci.yml) [![Instrumented](https://github.com/Kanyandula/NotifyBridge/actions/workflows/instrumented.yml/badge.svg?branch=main)](https://github.com/Kanyandula/NotifyBridge/actions/workflows/instrumented.yml) — fast lane (build, unit tests, detekt, lint, release assemble) and emulator lane (API 28 google_apis) on every push and PR.
+- **CI:** [![CI](https://github.com/Kanyandula/NotifyBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Kanyandula/NotifyBridge/actions/workflows/ci.yml) [![Instrumented](https://github.com/Kanyandula/NotifyBridge/actions/workflows/instrumented.yml/badge.svg?branch=main)](https://github.com/Kanyandula/NotifyBridge/actions/workflows/instrumented.yml) — fast lane (build, unit tests, screenshot verification, detekt, lint, release assemble) and emulator lane (API 28 google_apis) on every push and PR.
 
 ## Device manual verification checklist
 
