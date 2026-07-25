@@ -22,7 +22,7 @@ jobs:
       - uses: gradle/actions/wrapper-validation@v4
 
   build-and-test:
-    name: Build, unit tests, detekt, lint
+    name: Build, unit tests, screenshots, detekt, lint
     runs-on: ubuntu-latest
     needs: validation
     steps:
