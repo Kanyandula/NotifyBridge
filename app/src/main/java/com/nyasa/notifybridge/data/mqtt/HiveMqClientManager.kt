@@ -52,11 +52,16 @@ class HiveMqClientManager @Inject constructor(
     override val connectionState = state
     private val epoch = MutableStateFlow(0L)
     override val connectionEpoch = epoch
-    private var client: Mqtt5AsyncClient? = null
+
+    @Volatile private var client: Mqtt5AsyncClient? = null // read from HiveMQ listener threads
+
     private var activeConfig: BrokerConfig? = null
 
     // Serialises connect/ensureConnected so concurrent callers (service,
     // worker, Test button) can't build two clients or tear down each other's.
+    // Never held while waiting on the broker: with automatic reconnect,
+    // HiveMQ's connect future doesn't complete until the broker answers,
+    // which for a wrong host or TLS setting is never.
     private val connectionMutex = Mutex()
 
     override suspend fun connect(config: BrokerConfig) = connectionMutex.withLock { connectLocked(config) }
@@ -78,8 +83,16 @@ class HiveMqClientManager @Inject constructor(
             .serverHost(config.host)
             .serverPort(config.port)
             .automaticReconnectWithDefaultConfig()
-            .addDisconnectedListener { state.value = ConnectionState.DISCONNECTED }
+            .addDisconnectedListener { ctx ->
+                // A replaced client would otherwise retry forever and keep
+                // overwriting the live client's state.
+                if (client === c) state.value = ConnectionState.DISCONNECTED else ctx.reconnector.reconnect(false)
+            }
             .addConnectedListener {
+                if (client !== c) {
+                    c.disconnect() // replaced while it was retrying
+                    return@addConnectedListener
+                }
                 // Every (re)connect, automatic ones included: the broker may
                 // have sent our LWT `offline` or lost retained messages, so
                 // re-announce before waking DrainOnConnectUseCase.
@@ -125,16 +138,22 @@ class HiveMqClientManager @Inject constructor(
                     .password((config.password ?: "").toByteArray())
                     .applySimpleAuth()
             }
-            connect.send().await()
-            state.value = ConnectionState.CONNECTED
+            // Don't await: the connected listener reports success, and the
+            // future may never complete (see connectionMutex).
+            connect.send().whenComplete { _, t -> if (t != null) onConnectFailed(c, t) }
         } catch (t: Throwable) {
-            // Only latch ERROR if the underlying client is actually down —
-            // otherwise we'd stamp ERROR over a live session (the connected
-            // listener already emitted CONNECTED) and the UI would stay stuck
-            // even while publish() succeeds.
-            Log.w("HiveMq", "connect() catch fired (clientConnected=${c.state.isConnected})", t)
-            connectExceptionState(c.state.isConnected)?.let { state.value = it }
+            onConnectFailed(c, t)
         }
+    }
+
+    private fun onConnectFailed(c: Mqtt5AsyncClient, t: Throwable) {
+        if (client !== c) return // a replaced client's failure isn't ours to report
+        // Only latch ERROR if the underlying client is actually down —
+        // otherwise we'd stamp ERROR over a live session (the connected
+        // listener already emitted CONNECTED) and the UI would stay stuck
+        // even while publish() succeeds.
+        Log.w("HiveMq", "connect failed (clientConnected=${c.state.isConnected})", t)
+        connectExceptionState(c.state.isConnected)?.let { state.value = it }
     }
 
     /** Retained `online` status + HA discovery config. Fire-and-forget: it
@@ -179,13 +198,14 @@ class HiveMqClientManager @Inject constructor(
             if (clientConnected) null else ConnectionState.ERROR
 
         /**
-         * ensureConnected() keeps the current client iff it's connected or in
-         * HiveMQ's own reconnect backoff, for the same config. Rebuilding a
-         * reconnecting client would only reset its backoff; a settings change
-         * (different config) still rebuilds.
+         * ensureConnected() keeps the current client iff it's connected,
+         * connecting, or in HiveMQ's own reconnect backoff, for the same
+         * config. Rebuilding it would only reset its backoff; a settings
+         * change (different config) still rebuilds. Only a DISCONNECTED
+         * client (explicitly disconnected, or replaced) is dead.
          */
         fun shouldReuse(state: MqttClientState?, active: BrokerConfig?, wanted: BrokerConfig) =
-            state != null && state.isConnectedOrReconnect && active == wanted
+            state != null && state != MqttClientState.DISCONNECTED && active == wanted
 
         @Suppress("TooGenericExceptionCaught") // every throwable must map to an outcome
         internal suspend inline fun runPublish(block: () -> Unit): PublishOutcome =

@@ -1,8 +1,8 @@
 package com.nyasa.notifybridge.domain.usecase
 
 import com.nyasa.notifybridge.domain.model.BrokerConfig
-import com.nyasa.notifybridge.domain.model.ConnectionState
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
+import com.nyasa.notifybridge.domain.mqtt.awaitConnected
 import javax.inject.Inject
 
 class TestConnectionUseCase @Inject constructor(
@@ -10,6 +10,6 @@ class TestConnectionUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(config: BrokerConfig): Boolean {
         mqtt.connect(config)
-        return mqtt.connectionState.value == ConnectionState.CONNECTED
+        return mqtt.awaitConnected()
     }
 }

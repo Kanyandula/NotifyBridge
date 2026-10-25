@@ -46,13 +46,17 @@ class MqttForegroundService : Service() {
         scope.launch {
             // Off the main thread: first WorkManager use initialises it on demand.
             OutboxDrainWorker.schedule(this@MqttForegroundService)
-            val cfg = settings.brokerConfig.first()
-            if (cfg.host.isNotBlank()) mqtt.ensureConnected(cfg)
+            connectIfConfigured()
         }
     }
 
     override fun onStartCommand(i: Intent?, f: Int, id: Int): Int {
-        scope.launch { drain() }
+        // Broker Setup's Save restarts this service; ensureConnected applies a
+        // changed config and is a no-op otherwise.
+        scope.launch {
+            connectIfConfigured()
+            drain()
+        }
         // Debug: NOT_STICKY so a system kill cannot resurrect this
         // @AndroidEntryPoint service into the instrumented-test process.
         // Trade-off: no auto-restart in dev — acceptable, we redeploy.
@@ -78,6 +82,11 @@ class MqttForegroundService : Service() {
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         } else startForeground(1, n)
+    }
+
+    private suspend fun connectIfConfigured() {
+        val cfg = settings.brokerConfig.first()
+        if (cfg.host.isNotBlank()) mqtt.ensureConnected(cfg)
     }
 
     private fun resolve(s: LocalizedString): String = s.resolve(localization.languageFlow.value)
