@@ -5,23 +5,33 @@ import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.CapturedNotification
 import com.nyasa.notifybridge.domain.model.OutboxItem
 import com.nyasa.notifybridge.domain.model.RecentItem
+import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
 import com.nyasa.notifybridge.domain.repo.RecentNotificationsRepository
 import com.nyasa.notifybridge.fakes.FakeMqttClientManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** In-memory outbox mirroring the DAO: [items] is PENDING in FIFO order,
+ *  [terminal] is FAILED_TERMINAL (bumpAttemptOrFail semantics). */
 private class MemOutbox : OutboxRepository {
     val items = mutableListOf<OutboxItem>()
+    val terminal = mutableListOf<OutboxItem>()
     var seq = 0L
     override suspend fun enqueue(item: OutboxItem) { items += item.copy(id = ++seq) }
     override suspend fun nextBatch(limit: Int) = items.take(limit)
     override suspend fun markPublished(id: Long) { items.removeAll { it.id == id } }
-    override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) {}
+    override suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int) {
+        val i = items.indexOfFirst { it.id == id }
+        val bumped = items[i].copy(attemptCount = items[i].attemptCount + 1)
+        if (bumped.attemptCount >= maxAttempts) terminal += items.removeAt(i) else items[i] = bumped
+    }
     override suspend fun pruneExpired(nowMs: Long, ttlMs: Long, maxRows: Int) {}
     override fun failedDropCount(): Flow<Int> = flowOf(0)
     override fun pendingCount(): Flow<Int> = flowOf(0)
@@ -63,7 +73,7 @@ class UseCasesTest {
     @Test fun drain_keeps_item_on_publish_failure() = runTest {
         val ob = MemOutbox()
         ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
-        val mqtt = FakeMqttClientManager().apply { failPublish = true }
+        val mqtt = FakeMqttClientManager().apply { publishOutcome = PublishOutcome.Rejected }
         val recent = RecordingRecent()
         DrainOutboxUseCase(ob, mqtt, recent)()
         assertEquals(emptyList<OutboxItem>(), recent.published)
@@ -77,10 +87,36 @@ class UseCasesTest {
         val ob = MemOutbox()
         ob.enqueue(OutboxItem(topic = "t", payload = "p1", createdAt = 1))
         ob.enqueue(OutboxItem(topic = "t", payload = "p2", createdAt = 2))
-        val mqtt = FakeMqttClientManager().apply { failPublish = true }
+        val mqtt = FakeMqttClientManager().apply { publishOutcome = PublishOutcome.Rejected }
         DrainOutboxUseCase(ob, mqtt, RecordingRecent())()
         assertEquals(emptyList<Triple<String,String,Boolean>>(), mqtt.published)
         assertEquals(2, ob.items.size)
+    }
+
+    @Test fun broker_outage_never_burns_the_attempt_cap() = runTest {
+        // Regression (remediation K): 10 offline drains used to exhaust
+        // MAX_PUBLISH_ATTEMPTS and strand the row as FAILED_TERMINAL.
+        val ob = MemOutbox()
+        ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
+        val mqtt = FakeMqttClientManager().apply { publishOutcome = PublishOutcome.Transient }
+        val drain = DrainOutboxUseCase(ob, mqtt, RecordingRecent())
+        repeat(10) { drain() }
+        assertEquals(0, ob.items.single().attemptCount)
+
+        mqtt.publishOutcome = PublishOutcome.Success
+        drain()
+        assertEquals("p", mqtt.published.single().second)
+        assertEquals(0, ob.items.size)
+        assertEquals(0, ob.terminal.size)
+    }
+
+    @Test fun drain_sends_a_backlog_larger_than_one_batch_in_one_call() = runTest {
+        val ob = MemOutbox()
+        repeat(120) { ob.enqueue(OutboxItem(topic = "t", payload = "p$it", createdAt = it.toLong())) }
+        val mqtt = FakeMqttClientManager()
+        DrainOutboxUseCase(ob, mqtt, RecordingRecent())() // batch = 50
+        assertEquals((0 until 120).map { "p$it" }, mqtt.published.map { it.second })
+        assertEquals(0, ob.items.size)
     }
 
     @Test fun drain_deletes_published_item_when_recent_recording_fails() = runTest {
@@ -89,6 +125,40 @@ class UseCasesTest {
         val mqtt = FakeMqttClientManager()
         DrainOutboxUseCase(ob, mqtt, RecordingRecent(fail = true))()
         assertEquals("t" to "p", mqtt.published.single().let { it.first to it.second })
+        assertEquals(0, ob.items.size)
+    }
+
+    @Test fun drain_on_connect_drains_initially_and_after_a_reconnect() = runTest {
+        val ob = MemOutbox()
+        val mqtt = FakeMqttClientManager()
+        ob.enqueue(OutboxItem(topic = "t", payload = "p1", createdAt = 1))
+        backgroundScope.launch { DrainOnConnectUseCase(mqtt, DrainOutboxUseCase(ob, mqtt, RecordingRecent()))() }
+        runCurrent()
+        assertEquals(listOf("p1"), mqtt.published.map { it.second })
+
+        ob.enqueue(OutboxItem(topic = "t", payload = "p2", createdAt = 2))
+        mqtt.simulateReconnect()
+        runCurrent()
+        assertEquals(listOf("p1", "p2"), mqtt.published.map { it.second })
+    }
+
+    @Test fun reconnect_during_a_drain_triggers_another_drain() = runTest {
+        val ob = MemOutbox()
+        ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
+        val mqtt = FakeMqttClientManager()
+        var calls = 0
+        mqtt.onPublish = {
+            if (calls++ == 0) {
+                mqtt.simulateReconnect() // lands while the first drain holds the mutex
+                PublishOutcome.Transient
+            } else {
+                PublishOutcome.Success
+            }
+        }
+        backgroundScope.launch { DrainOnConnectUseCase(mqtt, DrainOutboxUseCase(ob, mqtt, RecordingRecent()))() }
+        runCurrent()
+        assertEquals(2, calls)
+        assertEquals("p", mqtt.published.single().second)
         assertEquals(0, ob.items.size)
     }
 

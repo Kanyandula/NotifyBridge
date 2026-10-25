@@ -2,21 +2,33 @@ package com.nyasa.notifybridge.data.mqtt
 
 import android.util.Log
 import com.hivemq.client.mqtt.MqttClient
+import com.hivemq.client.mqtt.MqttClientState
 import com.hivemq.client.mqtt.datatypes.MqttQos
+import com.hivemq.client.mqtt.exceptions.ConnectionClosedException
+import com.hivemq.client.mqtt.exceptions.ConnectionFailedException
+import com.hivemq.client.mqtt.exceptions.MqttClientStateException
+import com.hivemq.client.mqtt.exceptions.MqttSessionExpiredException
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
+import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5PubAckException
+import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode
 import com.nyasa.notifybridge.domain.discovery.DiscoveryPayloadBuilder
 import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.ConnectionState
 import com.nyasa.notifybridge.domain.model.TlsMode
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
-import kotlinx.coroutines.future.await
+import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.future.await
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import javax.inject.Inject
 import javax.inject.Singleton
 import javax.net.ssl.TrustManagerFactory
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Parses a PEM-encoded X.509 certificate string into an [X509Certificate].
@@ -38,21 +50,43 @@ class HiveMqClientManager @Inject constructor(
 
     private val state = MutableStateFlow(ConnectionState.DISCONNECTED)
     override val connectionState = state
+    private val epoch = MutableStateFlow(0L)
+    override val connectionEpoch = epoch
     private var client: Mqtt5AsyncClient? = null
-    private var device: String = "phone"
+    private var activeConfig: BrokerConfig? = null
 
-    override suspend fun connect(config: BrokerConfig) {
+    // Serialises connect/ensureConnected so concurrent callers (service,
+    // worker, Test button) can't build two clients or tear down each other's.
+    private val connectionMutex = Mutex()
+
+    override suspend fun connect(config: BrokerConfig) = connectionMutex.withLock { connectLocked(config) }
+
+    override suspend fun ensureConnected(config: BrokerConfig) {
+        connectionMutex.withLock {
+            if (!shouldReuse(client?.state, activeConfig, config)) connectLocked(config)
+        }
+    }
+
+    private suspend fun connectLocked(config: BrokerConfig) {
         state.value = ConnectionState.CONNECTING
-        device = config.deviceName
+        val device = config.deviceName
         runCatching { client?.disconnect()?.await() }
         client = null
+        lateinit var c: Mqtt5AsyncClient // assigned below, before any connect can fire the listener
         val builder = MqttClient.builder().useMqttVersion5()
             .identifier(clientId(config))
             .serverHost(config.host)
             .serverPort(config.port)
             .automaticReconnectWithDefaultConfig()
             .addDisconnectedListener { state.value = ConnectionState.DISCONNECTED }
-            .addConnectedListener { state.value = ConnectionState.CONNECTED }
+            .addConnectedListener {
+                // Every (re)connect, automatic ones included: the broker may
+                // have sent our LWT `offline` or lost retained messages, so
+                // re-announce before waking DrainOnConnectUseCase.
+                announceOnline(c, device)
+                state.value = ConnectionState.CONNECTED
+                epoch.update { it + 1 }
+            }
         if (useTls(config)) {
             if (requiresPinnedCert(config)) {
                 // §3.3/S4: pin to ONLY the supplied cert.
@@ -76,8 +110,9 @@ class HiveMqClientManager @Inject constructor(
                 builder.sslWithDefaultConfig()
             }
         }
-        val c = builder.buildAsync()
+        c = builder.buildAsync()
         client = c
+        activeConfig = config
         try {
             val connect = c.connectWith()
                 .willPublish()
@@ -91,32 +126,37 @@ class HiveMqClientManager @Inject constructor(
                     .applySimpleAuth()
             }
             connect.send().await()
-            c.publishWith().topic(discovery.statusTopic(device))
-                .payload("online".toByteArray()).retain(true)
-                .qos(MqttQos.AT_LEAST_ONCE).send().await()
-            c.publishWith().topic(discovery.discoveryTopic(device))
-                .payload(discovery.discoveryConfig(device).toByteArray()).retain(true)
-                .qos(MqttQos.AT_LEAST_ONCE).send().await()
             state.value = ConnectionState.CONNECTED
         } catch (t: Throwable) {
-            // A post-connect publish (status/discovery retain) can throw even
-            // after the socket connected and addConnectedListener emitted
-            // CONNECTED. Only latch ERROR if the underlying client is actually
-            // down — otherwise we'd stamp ERROR over a live session and the UI
-            // would stay stuck even while publish() succeeds.
+            // Only latch ERROR if the underlying client is actually down —
+            // otherwise we'd stamp ERROR over a live session (the connected
+            // listener already emitted CONNECTED) and the UI would stay stuck
+            // even while publish() succeeds.
             Log.w("HiveMq", "connect() catch fired (clientConnected=${c.state.isConnected})", t)
             connectExceptionState(c.state.isConnected)?.let { state.value = it }
         }
     }
 
-    override suspend fun publish(topic: String, payload: String, qos: Int, retained: Boolean): Boolean {
-        val c = client ?: return false
-        return try {
+    /** Retained `online` status + HA discovery config. Fire-and-forget: it
+     *  runs on HiveMQ's listener thread, which must not block. */
+    private fun announceOnline(c: Mqtt5AsyncClient, device: String) {
+        listOf(
+            discovery.statusTopic(device) to "online",
+            discovery.discoveryTopic(device) to discovery.discoveryConfig(device),
+        ).forEach { (topic, payload) ->
+            c.publishWith().topic(topic).payload(payload.toByteArray()).retain(true)
+                .qos(MqttQos.AT_LEAST_ONCE).send()
+                .whenComplete { _, t -> if (t != null) Log.w("HiveMq", "online/discovery announce failed", t) }
+        }
+    }
+
+    override suspend fun publish(topic: String, payload: String, qos: Int, retained: Boolean): PublishOutcome {
+        val c = client ?: return PublishOutcome.Transient
+        return runPublish {
             c.publishWith().topic(topic).payload(payload.toByteArray())
                 .qos(if (qos >= 1) MqttQos.AT_LEAST_ONCE else MqttQos.AT_MOST_ONCE)
                 .retain(retained).send().await()
-            true
-        } catch (t: Throwable) { false }
+        }
     }
 
     override suspend fun disconnect() {
@@ -137,5 +177,59 @@ class HiveMqClientManager @Inject constructor(
          */
         fun connectExceptionState(clientConnected: Boolean): ConnectionState? =
             if (clientConnected) null else ConnectionState.ERROR
+
+        /**
+         * ensureConnected() keeps the current client iff it's connected or in
+         * HiveMQ's own reconnect backoff, for the same config. Rebuilding a
+         * reconnecting client would only reset its backoff; a settings change
+         * (different config) still rebuilds.
+         */
+        fun shouldReuse(state: MqttClientState?, active: BrokerConfig?, wanted: BrokerConfig) =
+            state != null && state.isConnectedOrReconnect && active == wanted
+
+        @Suppress("TooGenericExceptionCaught") // every throwable must map to an outcome
+        internal suspend inline fun runPublish(block: () -> Unit): PublishOutcome =
+            try {
+                block()
+                PublishOutcome.Success
+            } catch (e: CancellationException) {
+                throw e // lifecycle control, never a publish failure
+            } catch (t: Throwable) {
+                classifyPublishError(t)
+            }
+
+        /**
+         * Publish error policy (spec §3.2, remediation K).
+         *
+         * [PublishOutcome.Transient] — never counts toward MAX_PUBLISH_ATTEMPTS:
+         * - [MqttClientStateException]: not connected (offline, or in HiveMQ's
+         *   reconnect backoff).
+         * - [MqttSessionExpiredException]: in-flight publish dropped on
+         *   reconnect (session expiry 0, republishIfSessionExpired = false).
+         * - [ConnectionClosedException], [ConnectionFailedException]: transport down.
+         * - [Mqtt5PubAckException] with QUOTA_EXCEEDED or PACKET_IDENTIFIER_IN_USE:
+         *   broker-side backpressure.
+         *
+         * [PublishOutcome.Rejected] — counts toward the cap: every other PUBACK
+         * reason code (NOT_AUTHORIZED, TOPIC_NAME_INVALID, PAYLOAD_FORMAT_INVALID,
+         * UNSPECIFIED_ERROR, IMPLEMENTATION_SPECIFIC_ERROR, …) and any unknown
+         * throwable. Deliberate: keeps poison-row protection for failures that
+         * only surface as generic errors.
+         *
+         * Trade-off: a broker that answers QUOTA_EXCEEDED forever holds the
+         * queue until the 7-day TTL prunes it.
+         */
+        fun classifyPublishError(t: Throwable): PublishOutcome = when (t) {
+            is MqttClientStateException,
+            is MqttSessionExpiredException,
+            is ConnectionClosedException,
+            is ConnectionFailedException -> PublishOutcome.Transient
+            is Mqtt5PubAckException -> when (t.mqttMessage.reasonCode) {
+                Mqtt5PubAckReasonCode.QUOTA_EXCEEDED,
+                Mqtt5PubAckReasonCode.PACKET_IDENTIFIER_IN_USE -> PublishOutcome.Transient
+                else -> PublishOutcome.Rejected
+            }
+            else -> PublishOutcome.Rejected
+        }
     }
 }

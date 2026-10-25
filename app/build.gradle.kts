@@ -52,6 +52,9 @@ android {
         // newer AGP publishes upstream — can't be baselined (version string
         // moves each release). Disable rather than chase it.
         disable += "AndroidGradlePluginVersion"
+        // Same class of nag for every library in libs.versions.toml: it fires
+        // as soon as anything newer ships, so main goes red with no code change.
+        disable += "GradleDependency"
         baseline = file("lint-baseline.xml")
         htmlReport = true
         xmlReport = true
