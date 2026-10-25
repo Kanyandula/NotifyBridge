@@ -11,6 +11,8 @@ class FakeMqttClientManager(
 ) : MqttClientManager {
     private val state = MutableStateFlow(ConnectionState.DISCONNECTED)
     override val connectionState = state
+    private val epoch = MutableStateFlow(0L)
+    override val connectionEpoch = epoch
     val published = mutableListOf<Triple<String, String, Boolean>>()
     var publishOutcome: PublishOutcome = PublishOutcome.Success
 
@@ -20,6 +22,16 @@ class FakeMqttClientManager(
     override suspend fun connect(config: BrokerConfig) {
         state.value = if (connectSucceeds) ConnectionState.CONNECTED
         else ConnectionState.ERROR
+        if (connectSucceeds) epoch.value++
+    }
+    override suspend fun ensureConnected(config: BrokerConfig) {
+        if (state.value != ConnectionState.CONNECTED) connect(config)
+    }
+
+    /** Mimics HiveMQ's automatic reconnect: no connect() call, epoch still bumps. */
+    fun simulateReconnect() {
+        state.value = ConnectionState.CONNECTED
+        epoch.value++
     }
     override suspend fun publish(topic: String, payload: String, qos: Int, retained: Boolean): PublishOutcome =
         onPublish().also { if (it == PublishOutcome.Success) published += Triple(topic, payload, retained) }

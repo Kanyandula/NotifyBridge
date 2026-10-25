@@ -2,6 +2,7 @@ package com.nyasa.notifybridge.data.mqtt
 
 import android.util.Log
 import com.hivemq.client.mqtt.MqttClient
+import com.hivemq.client.mqtt.MqttClientState
 import com.hivemq.client.mqtt.datatypes.MqttQos
 import com.hivemq.client.mqtt.exceptions.ConnectionClosedException
 import com.hivemq.client.mqtt.exceptions.ConnectionFailedException
@@ -17,7 +18,10 @@ import com.nyasa.notifybridge.domain.model.TlsMode
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
@@ -46,21 +50,40 @@ class HiveMqClientManager @Inject constructor(
 
     private val state = MutableStateFlow(ConnectionState.DISCONNECTED)
     override val connectionState = state
+    private val epoch = MutableStateFlow(0L)
+    override val connectionEpoch = epoch
     private var client: Mqtt5AsyncClient? = null
+    private var activeConfig: BrokerConfig? = null
     private var device: String = "phone"
 
-    override suspend fun connect(config: BrokerConfig) {
+    // Serialises connect/ensureConnected so concurrent callers (service,
+    // worker, Test button) can't build two clients or tear down each other's.
+    private val connectionMutex = Mutex()
+
+    override suspend fun connect(config: BrokerConfig) = connectionMutex.withLock { connectLocked(config) }
+
+    override suspend fun ensureConnected(config: BrokerConfig) {
+        connectionMutex.withLock {
+            if (!shouldReuse(client?.state, activeConfig, config)) connectLocked(config)
+        }
+    }
+
+    private suspend fun connectLocked(config: BrokerConfig) {
         state.value = ConnectionState.CONNECTING
         device = config.deviceName
         runCatching { client?.disconnect()?.await() }
         client = null
+        activeConfig = null
         val builder = MqttClient.builder().useMqttVersion5()
             .identifier(clientId(config))
             .serverHost(config.host)
             .serverPort(config.port)
             .automaticReconnectWithDefaultConfig()
             .addDisconnectedListener { state.value = ConnectionState.DISCONNECTED }
-            .addConnectedListener { state.value = ConnectionState.CONNECTED }
+            .addConnectedListener {
+                state.value = ConnectionState.CONNECTED
+                epoch.update { it + 1 }
+            }
         if (useTls(config)) {
             if (requiresPinnedCert(config)) {
                 // §3.3/S4: pin to ONLY the supplied cert.
@@ -86,6 +109,7 @@ class HiveMqClientManager @Inject constructor(
         }
         val c = builder.buildAsync()
         client = c
+        activeConfig = config
         try {
             val connect = c.connectWith()
                 .willPublish()
@@ -144,6 +168,15 @@ class HiveMqClientManager @Inject constructor(
          */
         fun connectExceptionState(clientConnected: Boolean): ConnectionState? =
             if (clientConnected) null else ConnectionState.ERROR
+
+        /**
+         * ensureConnected() keeps the current client iff it's connected or in
+         * HiveMQ's own reconnect backoff, for the same config. Rebuilding a
+         * reconnecting client would only reset its backoff; a settings change
+         * (different config) still rebuilds.
+         */
+        fun shouldReuse(state: MqttClientState?, active: BrokerConfig?, wanted: BrokerConfig) =
+            state != null && state.isConnectedOrReconnect && active == wanted
 
         @Suppress("TooGenericExceptionCaught") // every throwable must map to an outcome
         internal suspend inline fun runPublish(block: () -> Unit): PublishOutcome =

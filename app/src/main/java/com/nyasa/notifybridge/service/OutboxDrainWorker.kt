@@ -22,7 +22,9 @@ class OutboxDrainWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val cfg = settings.brokerConfig.first()
         if (cfg.host.isBlank()) return Result.success()
-        mqtt.connect(cfg)
+        // Never connect(): that would tear down a live client or reset one
+        // that's mid-way through HiveMQ's reconnect backoff.
+        mqtt.ensureConnected(cfg)
         drain()
         return Result.success()
     }

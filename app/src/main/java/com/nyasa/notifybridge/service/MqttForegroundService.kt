@@ -12,6 +12,7 @@ import com.nyasa.notifybridge.BuildConfig
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import com.nyasa.notifybridge.domain.repo.LocalizationRepository
 import com.nyasa.notifybridge.domain.repo.SettingsRepository
+import com.nyasa.notifybridge.domain.usecase.DrainOnConnectUseCase
 import com.nyasa.notifybridge.domain.usecase.DrainOutboxUseCase
 import com.nyasa.notifybridge.localization.Dictionary
 import com.nyasa.notifybridge.localization.LocalizedString
@@ -32,17 +33,19 @@ class MqttForegroundService : Service() {
     @Inject lateinit var settings: SettingsRepository
     @Inject lateinit var localization: LocalizationRepository
     @Inject lateinit var drain: DrainOutboxUseCase
+
+    @Inject lateinit var drainOnConnect: DrainOnConnectUseCase
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
         startAsForeground()
+        // Drains now (initial epoch) and after every reconnect, automatic
+        // ones included — so no explicit drain() after connecting.
+        scope.launch { drainOnConnect() }
         scope.launch {
             val cfg = settings.brokerConfig.first()
-            if (cfg.host.isNotBlank()) {
-                mqtt.connect(cfg)
-                drain()
-            }
+            if (cfg.host.isNotBlank()) mqtt.ensureConnected(cfg)
         }
     }
 

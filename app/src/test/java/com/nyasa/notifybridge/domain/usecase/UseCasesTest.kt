@@ -11,6 +11,8 @@ import com.nyasa.notifybridge.domain.repo.RecentNotificationsRepository
 import com.nyasa.notifybridge.fakes.FakeMqttClientManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -123,6 +125,40 @@ class UseCasesTest {
         val mqtt = FakeMqttClientManager()
         DrainOutboxUseCase(ob, mqtt, RecordingRecent(fail = true))()
         assertEquals("t" to "p", mqtt.published.single().let { it.first to it.second })
+        assertEquals(0, ob.items.size)
+    }
+
+    @Test fun drain_on_connect_drains_initially_and_after_a_reconnect() = runTest {
+        val ob = MemOutbox()
+        val mqtt = FakeMqttClientManager()
+        ob.enqueue(OutboxItem(topic = "t", payload = "p1", createdAt = 1))
+        backgroundScope.launch { DrainOnConnectUseCase(mqtt, DrainOutboxUseCase(ob, mqtt, RecordingRecent()))() }
+        runCurrent()
+        assertEquals(listOf("p1"), mqtt.published.map { it.second })
+
+        ob.enqueue(OutboxItem(topic = "t", payload = "p2", createdAt = 2))
+        mqtt.simulateReconnect()
+        runCurrent()
+        assertEquals(listOf("p1", "p2"), mqtt.published.map { it.second })
+    }
+
+    @Test fun reconnect_during_a_drain_triggers_another_drain() = runTest {
+        val ob = MemOutbox()
+        ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
+        val mqtt = FakeMqttClientManager()
+        var calls = 0
+        mqtt.onPublish = {
+            if (calls++ == 0) {
+                mqtt.simulateReconnect() // lands while the first drain holds the mutex
+                PublishOutcome.Transient
+            } else {
+                PublishOutcome.Success
+            }
+        }
+        backgroundScope.launch { DrainOnConnectUseCase(mqtt, DrainOutboxUseCase(ob, mqtt, RecordingRecent()))() }
+        runCurrent()
+        assertEquals(2, calls)
+        assertEquals("p", mqtt.published.single().second)
         assertEquals(0, ob.items.size)
     }
 
