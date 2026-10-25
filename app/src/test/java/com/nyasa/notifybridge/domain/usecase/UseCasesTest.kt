@@ -108,6 +108,15 @@ class UseCasesTest {
         assertEquals(0, ob.terminal.size)
     }
 
+    @Test fun drain_sends_a_backlog_larger_than_one_batch_in_one_call() = runTest {
+        val ob = MemOutbox()
+        repeat(120) { ob.enqueue(OutboxItem(topic = "t", payload = "p$it", createdAt = it.toLong())) }
+        val mqtt = FakeMqttClientManager()
+        DrainOutboxUseCase(ob, mqtt, RecordingRecent())() // batch = 50
+        assertEquals((0 until 120).map { "p$it" }, mqtt.published.map { it.second })
+        assertEquals(0, ob.items.size)
+    }
+
     @Test fun drain_deletes_published_item_when_recent_recording_fails() = runTest {
         val ob = MemOutbox()
         ob.enqueue(OutboxItem(topic = "t", payload = "p", createdAt = 1))
