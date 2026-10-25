@@ -40,11 +40,12 @@ class MqttForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         startAsForeground()
-        OutboxDrainWorker.schedule(this)
         // Drains now (initial epoch) and after every reconnect, automatic
         // ones included — so no explicit drain() after connecting.
         scope.launch { drainOnConnect() }
         scope.launch {
+            // Off the main thread: first WorkManager use initialises it on demand.
+            OutboxDrainWorker.schedule(this@MqttForegroundService)
             val cfg = settings.brokerConfig.first()
             if (cfg.host.isNotBlank()) mqtt.ensureConnected(cfg)
         }

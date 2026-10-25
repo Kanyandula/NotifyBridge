@@ -73,7 +73,6 @@ class HiveMqClientManager @Inject constructor(
         device = config.deviceName
         runCatching { client?.disconnect()?.await() }
         client = null
-        activeConfig = null
         val builder = MqttClient.builder().useMqttVersion5()
             .identifier(clientId(config))
             .serverHost(config.host)

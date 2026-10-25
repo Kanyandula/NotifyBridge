@@ -97,8 +97,6 @@
     <ID>MultiLineIfElse:BrokerScreen.kt$VisualTransformation.None</ID>
     <ID>MultiLineIfElse:BrokerScreen.kt$null</ID>
     <ID>MultiLineIfElse:BrokerScreen.kt$testResult</ID>
-    <ID>MultiLineIfElse:FakeMqttClientManager.kt$FakeMqttClientManager$ConnectionState.CONNECTED</ID>
-    <ID>MultiLineIfElse:FakeMqttClientManager.kt$FakeMqttClientManager$ConnectionState.ERROR</ID>
     <ID>MultiLineIfElse:MqttForegroundService.kt$MqttForegroundService$startForeground(1, n)</ID>
     <ID>MultiLineIfElse:PermissionsScreen.kt$Dictionary.Permissions.pillActionNeeded.localized()</ID>
     <ID>MultiLineIfElse:PermissionsScreen.kt$Dictionary.Permissions.pillGranted.localized()</ID>

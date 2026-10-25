@@ -20,9 +20,7 @@ class FakeMqttClientManager(
     var onPublish: suspend () -> PublishOutcome = { publishOutcome }
 
     override suspend fun connect(config: BrokerConfig) {
-        state.value = if (connectSucceeds) ConnectionState.CONNECTED
-        else ConnectionState.ERROR
-        if (connectSucceeds) epoch.value++
+        if (connectSucceeds) simulateReconnect() else state.value = ConnectionState.ERROR
     }
     override suspend fun ensureConnected(config: BrokerConfig) {
         if (state.value != ConnectionState.CONNECTED) connect(config)
