@@ -140,6 +140,34 @@ reflects "notification access lost" and publishing stops.
   service draining on connect and on every enqueue — the periodic job exists
   solely to recover if the service was killed and not yet restarted.
 
+> **Correction (post-impl, remediation K):** Transient publish failures
+> **do not count** toward `MAX_PUBLISH_ATTEMPTS`. `MqttClientManager.publish`
+> returns a `PublishOutcome`, classified by
+> `HiveMqClientManager.classifyPublishError`:
+>
+> | Outcome | Failures | Drain behaviour |
+> |---|---|---|
+> | `Transient` | no client yet; `MqttClientStateException`; `MqttSessionExpiredException`; `ConnectionClosedException`; `ConnectionFailedException`; PUBACK `QUOTA_EXCEEDED` / `PACKET_IDENTIFIER_IN_USE` | Stops; `attemptCount` untouched |
+> | `Rejected` | every other PUBACK reason code (`NOT_AUTHORIZED`, `TOPIC_NAME_INVALID`, `PAYLOAD_FORMAT_INVALID`, `UNSPECIFIED_ERROR`, `IMPLEMENTATION_SPECIFIC_ERROR`, …) and any unknown throwable | `recordFailureOrFailTerminal`, then stops |
+>
+> Rejected-by-default is deliberate: it keeps head-of-line protection for
+> poison rows whose failure only surfaces as a generic error. Trade-off: a
+> broker that answers `QUOTA_EXCEEDED` forever holds the queue until the
+> 7-day TTL prunes it. Coroutine cancellation is rethrown, never recorded.
+>
+> Drain triggers are now: every enqueue (FGS `onStartCommand`); every
+> successful (re)connection, **including HiveMQ's automatic reconnects**,
+> via `DrainOnConnectUseCase` collecting `MqttClientManager.connectionEpoch`
+> (a counter that only goes up, so a reconnect during a drain is never
+> lost); and the 15-minute worker. Each drain loops over 50-row batches
+> until the queue is empty or a row isn't delivered, so a backlog larger
+> than one batch clears in one trigger. The worker calls `ensureConnected`,
+> which reuses a connected or reconnecting client for the same config
+> instead of rebuilding it. The worker is scheduled (`UPDATE` policy,
+> `NetworkType.CONNECTED`) from both `BootReceiver` and
+> `MqttForegroundService.onCreate`, so a fresh install has the safety net
+> without a reboot.
+>
 > **Correction (post-impl, remediation J):** `attemptCount` is recorded
 > per-row but **does not drive a per-row backoff**; it's incremented on
 > publish failure for diagnostics only. Redelivery is *connection-level*:
@@ -201,6 +229,13 @@ It runs as `foregroundServiceType="connectedDevice"` (firm decision — see
 - **Last Will & Testament** on `notifybridge/<device>/status` →
   `offline`; on connect publishes `online` (retained) to the same topic.
 - Drains the outbox on connect and whenever a new item is enqueued.
+
+> **Correction (post-impl, remediation K):** the reconnect backoff is
+> `1s` initial, `120s` nominal cap with ±25% jitter, no retry limit (HiveMQ
+> default, `automaticReconnectWithDefaultConfig()`). It was previously
+> stated as `60s`. The jitter is applied after the cap, so one delay can
+> reach ~150s. "Drains on connect" now covers automatic reconnects too; see
+> §3.2 remediation K.
 
 ### 3.4 Home Assistant MQTT Discovery
 
@@ -359,13 +394,13 @@ HA: discovery sensor updates from state/attributes topic;
 
 | Failure | Behaviour |
 |---|---|
-| Broker unreachable | Backoff reconnect; items stay in outbox; UI shows disconnected; LWT marks HA entity offline. |
-| Publish not acked | Row retained, `attemptCount++`, backoff retry. <br/>**Correction (post-impl, remediation J):** `attemptCount` is incremented for diagnostics only; the drain stops on first failure to preserve FIFO order and resumes when the next drain trigger (enqueue / connect / 15-min worker) fires after HiveMQ's connection-level auto-reconnect backoff. See §3.2. |
+| Broker unreachable | Backoff reconnect; items stay in outbox; UI shows disconnected; LWT marks HA entity offline. <br/>**Correction (post-impl, remediation K):** publishes that fail because the broker is unreachable are `Transient` and never count toward `MAX_PUBLISH_ATTEMPTS`, so an outage can't turn rows `FAILED_TERMINAL`. Every reconnect (automatic ones included) triggers a drain that loops until the queue is empty. See §3.2. |
+| Publish not acked | Row retained, `attemptCount++`, backoff retry. <br/>**Correction (post-impl, remediation J):** `attemptCount` is incremented for diagnostics only; the drain stops on first failure to preserve FIFO order and resumes when the next drain trigger (enqueue / connect / 15-min worker) fires after HiveMQ's connection-level auto-reconnect backoff. See §3.2. <br/>**Correction (post-impl, remediation K):** only `Rejected` failures (non-backpressure PUBACK error codes, unknown errors) increment `attemptCount`; `Transient` ones (connection loss, `QUOTA_EXCEEDED`, `PACKET_IDENTIFIER_IN_USE`) don't. See §3.2. |
 | Service killed mid-publish | Row stays in outbox (deleted only on broker ack); on service restart, drain-on-connect republishes. QoS 1 → HA receives at-least-once; HA automations must be idempotent (use the JSON `post_time` attribute as the deduplication key). |
 | Outbox growth | 7-day TTL + 5,000-row cap, oldest pruned. |
 | Missing notification extras | Null fields, never throw. |
 | Notification access revoked | UI reflects loss; publishing stops; no crash. |
-| Reboot / process death | BootReceiver + periodic WorkManager re-drain. |
+| Reboot / process death | BootReceiver + periodic WorkManager re-drain. <br/>**Correction (post-impl, remediation K):** the periodic worker is also scheduled from `MqttForegroundService.onCreate` and requires a connected network. It calls `ensureConnected`, so it never tears down a live or reconnecting client. |
 | Notification update flood (progress bars, ongoing) | Deduped by `(package, tag, id)` + 500 ms debounce; content-unchanged ongoing updates dropped (§3.1 step 2). |
 
 ## 6. Testing (TDD)
