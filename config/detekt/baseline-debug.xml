@@ -10,7 +10,6 @@
     <ID>AnnotationOnSeparateLine:OutboxDao.kt$OutboxDao$@Query("SELECT COUNT(*) FROM outbox") suspend</ID>
     <ID>AnnotationOnSeparateLine:RepositoryModule.kt$RepositoryModule$@Module @InstallIn(SingletonComponent::class) abstract</ID>
     <ID>ArgumentListWrapping:BiometricAuthenticator.kt$BiometricAuthenticator$(activity, ContextCompat.getMainExecutor(activity), object : BiometricPrompt.AuthenticationCallback() { override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) = onSuccess() override fun onAuthenticationError(c: Int, s: CharSequence) = onFail() })</ID>
-    <ID>ArgumentListWrapping:BootReceiver.kt$BootReceiver$( "outbox-drain", ExistingPeriodicWorkPolicy.KEEP, PeriodicWorkRequestBuilder&lt;OutboxDrainWorker&gt;(15, TimeUnit.MINUTES).build())</ID>
     <ID>ArgumentListWrapping:BootReceiver.kt$BootReceiver$( Intent(context, MqttForegroundService::class.java))</ID>
     <ID>ArgumentListWrapping:BrokerScreen.kt$(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))</ID>
     <ID>ArgumentListWrapping:BrokerScreen.kt$(placeholder, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f))</ID>

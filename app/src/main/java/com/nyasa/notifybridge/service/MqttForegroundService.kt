@@ -40,6 +40,7 @@ class MqttForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         startAsForeground()
+        OutboxDrainWorker.schedule(this)
         // Drains now (initial epoch) and after every reconnect, automatic
         // ones included — so no explicit drain() after connecting.
         scope.launch { drainOnConnect() }
