@@ -32,7 +32,10 @@ class OutboxDrainWorker @AssistedInject constructor(
         // Never connect(): that would tear down a live client or reset one
         // that's mid-way through HiveMQ's reconnect backoff.
         mqtt.ensureConnected(cfg)
-        mqtt.awaitConnected() // no DrainOnConnect collector if the service is dead
+        // Give the connection a moment so the drain below can publish (the
+        // service's drain-on-connect isn't running if the service is dead).
+        // On timeout the drain just stops Transient; next period retries.
+        mqtt.awaitConnected()
         drain()
         return Result.success()
     }

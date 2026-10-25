@@ -175,7 +175,12 @@ reflects "notification access lost" and publishing stops.
 > config) behind it. Callers that need a result (Test connection, the
 > worker) wait at most 10s for `CONNECTED`. A replaced client stops its own
 > retry loop. `onStartCommand` also calls `ensureConnected`, so saving
-> broker settings applies them while the bridge is running.
+> broker settings applies them while the bridge is running. `publish`
+> returns `Transient` unless the client is connected: while reconnecting
+> HiveMQ *queues* a publish rather than failing it, and a client that
+> never (re)connects never completes it, which would hold the drain mutex
+> forever. The PUBACK wait is capped at 30s (`Transient` on timeout; a
+> later duplicate is within QoS 1's at-least-once contract).
 >
 > **Correction (post-impl, remediation J):** `attemptCount` is recorded
 > per-row but **does not drive a per-row backoff**; it's incremented on

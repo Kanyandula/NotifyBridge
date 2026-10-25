@@ -17,11 +17,13 @@ import com.nyasa.notifybridge.domain.model.ConnectionState
 import com.nyasa.notifybridge.domain.model.TlsMode
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
@@ -53,7 +55,9 @@ class HiveMqClientManager @Inject constructor(
     private val epoch = MutableStateFlow(0L)
     override val connectionEpoch = epoch
 
-    @Volatile private var client: Mqtt5AsyncClient? = null // read from HiveMQ listener threads
+    // Read from HiveMQ listener threads; a listener whose client isn't this
+    // one belongs to a replaced client.
+    @Volatile private var client: Mqtt5AsyncClient? = null
 
     private var activeConfig: BrokerConfig? = null
 
@@ -72,11 +76,12 @@ class HiveMqClientManager @Inject constructor(
         }
     }
 
+    /** Builds a client and sends CONNECT; returns before the broker answers.
+     *  Caller holds [connectionMutex]. */
     private suspend fun connectLocked(config: BrokerConfig) {
         state.value = ConnectionState.CONNECTING
         val device = config.deviceName
-        runCatching { client?.disconnect()?.await() }
-        client = null
+        retireLocked()
         lateinit var c: Mqtt5AsyncClient // assigned below, before any connect can fire the listener
         val builder = MqttClient.builder().useMqttVersion5()
             .identifier(clientId(config))
@@ -84,9 +89,13 @@ class HiveMqClientManager @Inject constructor(
             .serverPort(config.port)
             .automaticReconnectWithDefaultConfig()
             .addDisconnectedListener { ctx ->
-                // A replaced client would otherwise retry forever and keep
-                // overwriting the live client's state.
-                if (client === c) state.value = ConnectionState.DISCONNECTED else ctx.reconnector.reconnect(false)
+                if (client === c) {
+                    state.value = ConnectionState.DISCONNECTED
+                } else {
+                    // Replaced: cancel its automatic reconnect, or it retries
+                    // forever and keeps overwriting the live client's state.
+                    ctx.reconnector.reconnect(false)
+                }
             }
             .addConnectedListener {
                 if (client !== c) {
@@ -146,12 +155,24 @@ class HiveMqClientManager @Inject constructor(
         }
     }
 
+    /** Detaches the current client before disconnecting it, so its listeners
+     *  already see it as replaced and can't touch shared state meanwhile.
+     *  disconnect() fails fast (not connected) on a client that is still
+     *  connecting or reconnecting, so this can't hang. */
+    private suspend fun retireLocked() {
+        val old = client
+        client = null
+        activeConfig = null
+        runCatching { old?.disconnect()?.await() }
+    }
+
+    /** Fires on a synchronous failure building or sending CONNECT. With
+     *  automatic reconnect the CONNECT future itself doesn't fail on a bad
+     *  host or TLS setting: HiveMQ keeps retrying, and the disconnected
+     *  listener reports DISCONNECTED. */
     private fun onConnectFailed(c: Mqtt5AsyncClient, t: Throwable) {
         if (client !== c) return // a replaced client's failure isn't ours to report
-        // Only latch ERROR if the underlying client is actually down —
-        // otherwise we'd stamp ERROR over a live session (the connected
-        // listener already emitted CONNECTED) and the UI would stay stuck
-        // even while publish() succeeds.
+        // Only latch ERROR if the client is actually down, never over a live session.
         Log.w("HiveMq", "connect failed (clientConnected=${c.state.isConnected})", t)
         connectExceptionState(c.state.isConnected)?.let { state.value = it }
     }
@@ -170,20 +191,31 @@ class HiveMqClientManager @Inject constructor(
     }
 
     override suspend fun publish(topic: String, payload: String, qos: Int, retained: Boolean): PublishOutcome {
-        val c = client ?: return PublishOutcome.Transient
+        // While reconnecting, HiveMQ queues a publish instead of failing it,
+        // and a client that never (re)connects never completes it, which
+        // would hold DrainOutboxUseCase's mutex forever. So only publish on a
+        // live connection, and bound the wait for the PUBACK.
+        val c = client?.takeIf { it.state.isConnected } ?: return PublishOutcome.Transient
         return runPublish {
-            c.publishWith().topic(topic).payload(payload.toByteArray())
-                .qos(if (qos >= 1) MqttQos.AT_LEAST_ONCE else MqttQos.AT_MOST_ONCE)
-                .retain(retained).send().await()
+            withTimeout(PUBLISH_TIMEOUT_MS) {
+                c.publishWith().topic(topic).payload(payload.toByteArray())
+                    .qos(if (qos >= 1) MqttQos.AT_LEAST_ONCE else MqttQos.AT_MOST_ONCE)
+                    .retain(retained).send().await()
+            }
         }
     }
 
     override suspend fun disconnect() {
-        runCatching { client?.disconnect()?.await() }
+        connectionMutex.withLock { retireLocked() }
         state.value = ConnectionState.DISCONNECTED
     }
 
     companion object {
+        /** Past this, a QoS 1 publish counts as Transient. On timeout the
+         *  message may still go out later, so a retry can duplicate it, which
+         *  QoS 1 (at-least-once) already allows. */
+        const val PUBLISH_TIMEOUT_MS = 30_000L
+
         fun useTls(c: BrokerConfig) = c.tlsMode != TlsMode.OFF
         fun requiresPinnedCert(c: BrokerConfig) = c.tlsMode == TlsMode.PINNED
         fun clientId(c: BrokerConfig) =
@@ -207,11 +239,13 @@ class HiveMqClientManager @Inject constructor(
         fun shouldReuse(state: MqttClientState?, active: BrokerConfig?, wanted: BrokerConfig) =
             state != null && state != MqttClientState.DISCONNECTED && active == wanted
 
-        @Suppress("TooGenericExceptionCaught") // every throwable must map to an outcome
+        @Suppress("TooGenericExceptionCaught", "SwallowedException") // every throwable must map to an outcome
         internal suspend inline fun runPublish(block: () -> Unit): PublishOutcome =
             try {
                 block()
                 PublishOutcome.Success
+            } catch (e: TimeoutCancellationException) {
+                PublishOutcome.Transient // our own PUBACK timeout (withTimeout), not lifecycle cancellation
             } catch (e: CancellationException) {
                 throw e // lifecycle control, never a publish failure
             } catch (t: Throwable) {

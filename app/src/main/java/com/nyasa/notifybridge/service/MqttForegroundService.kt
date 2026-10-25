@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import com.nyasa.notifybridge.BuildConfig
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
 import com.nyasa.notifybridge.domain.repo.LocalizationRepository
@@ -19,6 +20,7 @@ import com.nyasa.notifybridge.localization.LocalizedString
 import com.nyasa.notifybridge.localization.foregroundTitle
 import com.nyasa.notifybridge.localization.notificationChannelName
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -86,7 +88,16 @@ class MqttForegroundService : Service() {
 
     private suspend fun connectIfConfigured() {
         val cfg = settings.brokerConfig.first()
-        if (cfg.host.isNotBlank()) mqtt.ensureConnected(cfg)
+        if (cfg.host.isBlank()) return
+        try {
+            mqtt.ensureConnected(cfg)
+        } catch (e: CancellationException) {
+            throw e // extends IllegalStateException; must not be swallowed below
+        } catch (e: IllegalStateException) {
+            // Invalid pinned cert (fails loud by design, §3.3/S4; state is
+            // already ERROR). Don't crash the bridge or skip the drain.
+            Log.w("MqttFgs", "connect refused", e)
+        }
     }
 
     private fun resolve(s: LocalizedString): String = s.resolve(localization.languageFlow.value)

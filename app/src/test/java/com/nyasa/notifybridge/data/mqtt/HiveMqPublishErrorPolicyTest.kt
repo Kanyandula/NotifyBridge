@@ -10,7 +10,9 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode
 import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import kotlin.coroutines.cancellation.CancellationException
@@ -64,6 +66,14 @@ class HiveMqPublishErrorPolicyTest {
         assertEquals(
             PublishOutcome.Transient,
             HiveMqClientManager.runPublish { throw ConnectionClosedException("closed") },
+        )
+    }
+
+    @Test fun runPublish_maps_its_own_timeout_to_transient() = runTest {
+        // A publish queued on a client that never reconnects must not hold the drain forever.
+        assertEquals(
+            PublishOutcome.Transient,
+            HiveMqClientManager.runPublish { withTimeout(1_000) { delay(5_000) } },
         )
     }
 
