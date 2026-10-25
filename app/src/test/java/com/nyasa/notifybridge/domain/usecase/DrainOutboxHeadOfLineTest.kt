@@ -18,8 +18,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Spec §3.2 head-of-line protection — on publish failure the drain routes
- *  through [OutboxRepository.recordFailureOrFailTerminal] with the spec cap. */
+/** Spec §3.2 head-of-line protection — on a Rejected publish the drain routes
+ *  through [OutboxRepository.recordFailureOrFailTerminal] with the spec cap;
+ *  Transient and cancelled publishes never do (remediation K). */
 class DrainOutboxHeadOfLineTest {
 
     private class RecordingOutbox(private val batch: List<OutboxItem>) : OutboxRepository {

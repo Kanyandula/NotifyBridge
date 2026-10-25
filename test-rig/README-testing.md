@@ -96,8 +96,8 @@ mosquitto_sub -h <mac-ip> -t 'homeassistant/sensor/notifybridge_phone/#' -v
 | Topic | Purpose |
 | --- | --- |
 | `notifybridge/<device>/notification` | state + `json_attributes` payload for each notification |
-| `notifybridge/<device>/status` | LWT — `online` on connect (retained), `offline` on disconnect |
-| `homeassistant/sensor/notifybridge_<device>/config` | discovery config (retained) so HA auto-creates the sensor |
+| `notifybridge/<device>/status` | `online` (retained) on every connect, automatic reconnects included; `offline` as the LWT when the connection drops uncleanly |
+| `homeassistant/sensor/notifybridge_<device>/config` | discovery config (retained) so HA auto-creates the sensor; re-published on every reconnect |
 
 `<device>` is slugified from the **Device name** in Broker Setup. Default is
 `phone`, so the topics resolve to `notifybridge/phone/notification` etc.
@@ -106,10 +106,10 @@ mosquitto_sub -h <mac-ip> -t 'homeassistant/sensor/notifybridge_phone/#' -v
 
 ## Run the checklist
 
-The 10-step behavioural checklist lives in the **root README**:
+The 11-step behavioural checklist lives in the **root README**:
 [`README.md` → Device manual verification checklist](../README.md#device-manual-verification-checklist).
-Open that section and walk it top to bottom. This rig backs steps 3–6 and 9
-directly; steps 7–8 are app-internal (don't need the broker).
+Open that section and walk it top to bottom. This rig backs steps 3–6, 9 and
+11 directly; steps 7–8 are app-internal (don't need the broker).
 
 Do not copy the checklist here — it stays single-source.
 
@@ -168,13 +168,17 @@ Verifies Task 25's pinned trust manager end-to-end.
 
 ## Failure injection (the differentiators vs HA Companion sensor)
 
-These are the cases the unit suite can't cover. Pair with checklist steps 5–6.
+These are the cases the unit suite can't cover. Pair with checklist steps 5, 6
+and 11.
 
 | Action | Expected |
 | --- | --- |
-| `docker compose stop mosquitto` | App Status screen → outbox depth rises with each notification; HA entity flips to *unavailable* (LWT). |
-| `docker compose start mosquitto` | Outbox depth returns to 0; HA replays the buffered notifications in order; entity *available* again. |
-| Toggle phone Wi-Fi off | HA entity → *unavailable* within keep-alive (60s). |
+| `docker compose stop mosquitto`, then post 6+ notifications | App Status screen → outbox depth rises with each notification; HA entity flips to *unavailable* (HA has lost the broker too). |
+| `docker compose start mosquitto` | The app reconnects on its own. Its backoff goes 1s, 2s, 4s… up to a ~120s cap (±25%), so after a long outage allow up to ~2.5 min. Then: every buffered notification arrives in order, none missing; outbox depth returns to 0; entity *available* again. Outage failures never count toward the 5-attempt cap, so nothing is dropped. |
+| Same, with 60+ notifications buffered | All arrive in order in one go: the drain keeps going past the 50-row batch, with no second trigger needed. |
+| `docker compose stop mosquitto`, `rm mosquitto/data/mosquitto.db`, `docker compose start mosquitto` (wipes retained messages) | After the app reconnects, the entity is *available* again and `mosquitto_sub -h <mac-ip> -t 'homeassistant/#' -t 'notifybridge/+/status' -v` shows the retained discovery config and `online` again: the app re-publishes both on every reconnect. |
+| Toggle phone Wi-Fi off | HA entity → *unavailable* once the broker gives up on the keep-alive (~90s: 1.5 × 60s) and publishes the LWT. |
+| Toggle phone Wi-Fi back on | Entity *available* again once the app's reconnect backoff fires (seconds after a short outage, up to ~2.5 min after a long one), without reopening the app; notifications posted while offline arrive in order. |
 | Lock phone, post 3 notifications quickly | All 3 published; none dropped. |
 
 ---
