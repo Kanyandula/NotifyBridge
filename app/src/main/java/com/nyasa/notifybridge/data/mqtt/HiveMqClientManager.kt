@@ -3,20 +3,28 @@ package com.nyasa.notifybridge.data.mqtt
 import android.util.Log
 import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.datatypes.MqttQos
+import com.hivemq.client.mqtt.exceptions.ConnectionClosedException
+import com.hivemq.client.mqtt.exceptions.ConnectionFailedException
+import com.hivemq.client.mqtt.exceptions.MqttClientStateException
+import com.hivemq.client.mqtt.exceptions.MqttSessionExpiredException
 import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient
+import com.hivemq.client.mqtt.mqtt5.exceptions.Mqtt5PubAckException
+import com.hivemq.client.mqtt.mqtt5.message.publish.puback.Mqtt5PubAckReasonCode
 import com.nyasa.notifybridge.domain.discovery.DiscoveryPayloadBuilder
 import com.nyasa.notifybridge.domain.model.BrokerConfig
 import com.nyasa.notifybridge.domain.model.ConnectionState
 import com.nyasa.notifybridge.domain.model.TlsMode
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
-import kotlinx.coroutines.future.await
+import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.future.await
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import javax.inject.Inject
 import javax.inject.Singleton
 import javax.net.ssl.TrustManagerFactory
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Parses a PEM-encoded X.509 certificate string into an [X509Certificate].
@@ -109,14 +117,13 @@ class HiveMqClientManager @Inject constructor(
         }
     }
 
-    override suspend fun publish(topic: String, payload: String, qos: Int, retained: Boolean): Boolean {
-        val c = client ?: return false
-        return try {
+    override suspend fun publish(topic: String, payload: String, qos: Int, retained: Boolean): PublishOutcome {
+        val c = client ?: return PublishOutcome.Transient
+        return runPublish {
             c.publishWith().topic(topic).payload(payload.toByteArray())
                 .qos(if (qos >= 1) MqttQos.AT_LEAST_ONCE else MqttQos.AT_MOST_ONCE)
                 .retain(retained).send().await()
-            true
-        } catch (t: Throwable) { false }
+        }
     }
 
     override suspend fun disconnect() {
@@ -137,5 +144,50 @@ class HiveMqClientManager @Inject constructor(
          */
         fun connectExceptionState(clientConnected: Boolean): ConnectionState? =
             if (clientConnected) null else ConnectionState.ERROR
+
+        @Suppress("TooGenericExceptionCaught") // every throwable must map to an outcome
+        internal suspend inline fun runPublish(block: () -> Unit): PublishOutcome =
+            try {
+                block()
+                PublishOutcome.Success
+            } catch (e: CancellationException) {
+                throw e // lifecycle control, never a publish failure
+            } catch (t: Throwable) {
+                classifyPublishError(t)
+            }
+
+        /**
+         * Publish error policy (spec §3.2, remediation K).
+         *
+         * [PublishOutcome.Transient] — never counts toward MAX_PUBLISH_ATTEMPTS:
+         * - [MqttClientStateException]: not connected (offline, or in HiveMQ's
+         *   reconnect backoff).
+         * - [MqttSessionExpiredException]: in-flight publish dropped on
+         *   reconnect (session expiry 0, republishIfSessionExpired = false).
+         * - [ConnectionClosedException], [ConnectionFailedException]: transport down.
+         * - [Mqtt5PubAckException] with QUOTA_EXCEEDED or PACKET_IDENTIFIER_IN_USE:
+         *   broker-side backpressure.
+         *
+         * [PublishOutcome.Rejected] — counts toward the cap: every other PUBACK
+         * reason code (NOT_AUTHORIZED, TOPIC_NAME_INVALID, PAYLOAD_FORMAT_INVALID,
+         * UNSPECIFIED_ERROR, IMPLEMENTATION_SPECIFIC_ERROR, …) and any unknown
+         * throwable. Deliberate: keeps poison-row protection for failures that
+         * only surface as generic errors.
+         *
+         * Trade-off: a broker that answers QUOTA_EXCEEDED forever holds the
+         * queue until the 7-day TTL prunes it.
+         */
+        fun classifyPublishError(t: Throwable): PublishOutcome = when (t) {
+            is MqttClientStateException,
+            is MqttSessionExpiredException,
+            is ConnectionClosedException,
+            is ConnectionFailedException -> PublishOutcome.Transient
+            is Mqtt5PubAckException -> when (t.mqttMessage.reasonCode) {
+                Mqtt5PubAckReasonCode.QUOTA_EXCEEDED,
+                Mqtt5PubAckReasonCode.PACKET_IDENTIFIER_IN_USE -> PublishOutcome.Transient
+                else -> PublishOutcome.Rejected
+            }
+            else -> PublishOutcome.Rejected
+        }
     }
 }

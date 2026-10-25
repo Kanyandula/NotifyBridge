@@ -2,14 +2,20 @@ package com.nyasa.notifybridge.domain.usecase
 
 import com.nyasa.notifybridge.domain.MAX_PUBLISH_ATTEMPTS
 import com.nyasa.notifybridge.domain.model.OutboxItem
+import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
 import com.nyasa.notifybridge.fakes.FakeMqttClientManager
 import com.nyasa.notifybridge.fakes.NoopRecentNotificationsRepository
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Spec §3.2 head-of-line protection — on publish failure the drain routes
@@ -38,7 +44,7 @@ class DrainOutboxHeadOfLineTest {
     @Test
     fun publish_failure_routes_through_recordFailureOrFailTerminal_with_spec_cap() = runTest {
         val outbox = RecordingOutbox(batch = listOf(item(id = 1L)))
-        val mqtt = FakeMqttClientManager().apply { failPublish = true }
+        val mqtt = FakeMqttClientManager().apply { publishOutcome = PublishOutcome.Rejected }
 
         DrainOutboxUseCase(outbox, mqtt, NoopRecentNotificationsRepository())()
 
@@ -54,6 +60,33 @@ class DrainOutboxHeadOfLineTest {
         val mqtt = FakeMqttClientManager() // publishes successfully
 
         DrainOutboxUseCase(outbox, mqtt, NoopRecentNotificationsRepository())()
+
+        assertNull(outbox.failTerminalCall)
+    }
+
+    @Test
+    fun transient_failure_records_nothing_and_holds_the_queue() = runTest {
+        val outbox = RecordingOutbox(batch = listOf(item(id = 1L), item(id = 2L)))
+        var calls = 0
+        val mqtt = FakeMqttClientManager().apply {
+            onPublish = { if (calls++ == 0) PublishOutcome.Transient else PublishOutcome.Success }
+        }
+
+        DrainOutboxUseCase(outbox, mqtt, NoopRecentNotificationsRepository())()
+
+        assertNull(outbox.failTerminalCall)
+        assertEquals(1, calls) // row 2 never attempted ahead of row 1
+        assertTrue(mqtt.published.isEmpty())
+    }
+
+    @Test
+    fun cancelled_publish_records_no_failure() = runTest {
+        val outbox = RecordingOutbox(batch = listOf(item(id = 1L)))
+        val mqtt = FakeMqttClientManager().apply { onPublish = { awaitCancellation() } }
+
+        val job = launch { DrainOutboxUseCase(outbox, mqtt, NoopRecentNotificationsRepository())() }
+        runCurrent()
+        job.cancelAndJoin()
 
         assertNull(outbox.failTerminalCall)
     }
