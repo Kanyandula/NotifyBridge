@@ -16,8 +16,11 @@ Design spec: [docs/superpowers/specs/2026-05-17-notifybridge-design.md](docs/sup
 - Reliable while locked / dozing — a `connectedDevice` foreground service keeps
   the MQTT connection alive so rapid-fire notifications all arrive (unlike the
   Companion app's "Last Notification" sensor, which clobbers).
-- Offline buffering — notifications posted while the broker is unreachable are
-  queued in a Room-backed outbox and drained when connectivity returns.
+- Offline buffering — notifications posted while the broker or the phone is
+  offline are queued in a Room-backed outbox and kept until delivered: an
+  outage never counts as a failed attempt. As soon as the connection comes
+  back, including the client's own automatic reconnect, the whole backlog is
+  sent in order (kept up to 7 days / 5,000 rows).
 - Home Assistant MQTT auto-discovery — a retained config message on
   `homeassistant/sensor/notifybridge_<device>/config` lets HA pick the sensor
   up without manual YAML.
@@ -142,7 +145,8 @@ In the app's Broker screen, set:
 Topic shape (see [`DiscoveryPayloadBuilder`](app/src/main/java/com/nyasa/notifybridge/domain/discovery/DiscoveryPayloadBuilder.kt)):
 
 - `notifybridge/<device>/notification` — JSON payload per notification
-- `notifybridge/<device>/status` — LWT online/offline
+- `notifybridge/<device>/status` — retained `online` on every connect and
+  reconnect; `offline` as the LWT when the connection drops
 - `homeassistant/sensor/notifybridge_<device>/config` — retained HA discovery config
 
 With Home Assistant's MQTT integration pointed at the same broker, the sensor
@@ -150,10 +154,11 @@ appears automatically after the first publish.
 
 ## Testing
 
-- **JVM unit tests** — `app/src/test/` (~28 files): notification mapping
+- **JVM unit tests** — `app/src/test/` (~29 files): notification mapping
   (`MessagingStyle`, body priority chain), dedup/debounce, outbox
-  enqueue/drain/prune, discovery payload, app-lock idle timeout, settings
-  parsing, plus ViewModel tests for Broker / Apps / Onboarding.
+  enqueue/drain/prune, publish-error classification and drain-on-reconnect,
+  discovery payload, app-lock idle timeout, settings parsing, plus ViewModel
+  tests for Broker / Apps / Onboarding.
 - **Screenshot tests** — `app/src/test/java/.../screenshot/` (7 test classes,
   20 goldens in `app/src/test/screenshots/`): Roborazzi on Robolectric,
   pinned to Pixel 5 / SDK 34 with fixed locale and timezone. Covers Status,
@@ -180,12 +185,20 @@ appears automatically after the first publish.
 2. Grant notification access → step 2 unlocks.
 3. Configure broker against a local Mosquitto (TLS OFF) → Test Connection shows success.
 4. Enable WhatsApp in Apps; post a test notification → appears in HA via discovery sensor; attributes (`title`,`text`,`app`,`package`) present.
-5. Kill broker → notifications buffer (outbox depth rises); restore broker → outbox drains.
+5. Stop the broker, post 6+ notifications → outbox depth rises. Restore the
+   broker → within ~2.5 min (reconnect backoff) every notification arrives in
+   HA, in order, none missing, and outbox depth returns to 0. A missing one
+   means a row was dropped as `FAILED_TERMINAL` (the drop count isn't shown in
+   the UI yet).
+   - Repeat with 60+ notifications queued (more than one 50-row batch) → all
+     arrive in order in one go, without waiting for another notification or
+     the 15-minute worker.
 6. Lock phone, post 3 rapid notifications → all 3 arrive (no clobber, vs. Companion sensor).
 7. Background app past idle timeout → returns locked; biometric/PIN unlocks.
 8. Recent list bodies show redacted until reveal.
 9. Reboot device, open app once, post notification → still forwarded (BootReceiver path).
 10. With SYSTEM_CA + a CA-signed broker, and PINNED + self-signed PEM → both connect; trust-all is not an option (S4).
+11. Turn the phone's Wi-Fi off for 2+ min, posting a notification meanwhile → HA shows the device *unavailable* (LWT). Wi-Fi back on → once the app's automatic reconnect fires (seconds after a short outage, up to ~2.5 min after a long one) HA shows it *available* again, without reopening the app, and the buffered notification arrives.
 
 ## API-version caveat (§3.8)
 

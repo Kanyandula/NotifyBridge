@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Update (post-impl, remediation K, PR #12):** transient publish failures (broker unreachable, connection dropped, session expired, PUBACK `QUOTA_EXCEEDED` / `PACKET_IDENTIFIER_IN_USE`) no longer count toward `MAX_PUBLISH_ATTEMPTS`. Only `Rejected` outcomes reach `recordFailureOrFailTerminal`, so this protection applies to deterministic or unknown payload failures, as originally intended, and a broker outage can't turn rows `FAILED_TERMINAL`. See spec §3.2 remediation K.
+
 **Goal:** Implement finding A from the spec patch — rows that fail to publish `MAX_PUBLISH_ATTEMPTS = 5` consecutive times transition to `FAILED_TERMINAL` status; drain skips them; a `failedDropCount` Flow exposes the count to Diagnostics and tests. Eliminates the head-of-line blocking that previously stalled the outbox for up to 7 days.
 
 **Architecture:** Three layers touched, each thinly: Room schema (one column, one migration), DAO (one new query + one new transactional update + one Flow), Repository (pass-throughs), UseCase (one threshold check). No new modules, no new DI bindings, no UI work. Diagnostics ViewModel/Composable that *consume* `failedDropCount` are a separate follow-up plan.

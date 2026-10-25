@@ -124,10 +124,17 @@ mosquitto_sub -t 'notifybridge/#' -v
   the phone is locked. It's low-importance and silent; just an indicator.
 - **Phone locked.** Notifications keep flowing. This is the main thing the
   app does better than HA's built-in companion sensor.
-- **Broker offline.** Notifications buffer locally (Room database). When
-  the broker is reachable again, the app replays the buffer in order.
-- **Phone offline (no Wi-Fi).** HA flips the entity to *unavailable* via
-  the MQTT Last-Will. Reconnect = back to available.
+- **Broker offline.** Notifications are saved on the phone instead of being
+  lost. The app keeps trying to reconnect by itself (more slowly the longer
+  the broker is down, but never less often than every couple of minutes). As
+  soon as the broker is back, it sends everything it saved, oldest first, in
+  one go. A broker outage alone never makes the app give up on a
+  notification; it keeps up to a week's worth.
+- **Phone offline (no Wi-Fi).** After about a minute and a half, HA shows
+  the phone as *unavailable*. Notifications that arrive meanwhile wait on the
+  phone. When Wi-Fi comes back, the app reconnects on its own (usually within a
+  minute or two), HA shows it as *available* again, and the waiting
+  notifications arrive in order. You don't need to open the app.
 - **Reboot.** First time after install, Android requires you to open
   NotifyBridge **at least once** before its boot receiver is allowed to run.
   After that, on every boot the bridge restarts itself and replays anything

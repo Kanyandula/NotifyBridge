@@ -18,8 +18,9 @@ class DrainOutboxUseCase @Inject constructor(
     private val recent: RecentNotificationsRepository,
 ) {
     // Single-flight guard. Three triggers can fire `invoke` concurrently —
-    // OutboxDrainWorker.doWork (periodic), MqttForegroundService.onCreate, and
-    // MqttForegroundService.onStartCommand (every enqueue signal). Without
+    // MqttForegroundService.onStartCommand (every enqueue signal),
+    // DrainOnConnectUseCase (every (re)connection, automatic reconnects
+    // included) and OutboxDrainWorker.doWork (periodic safety net). Without
     // serialization they `nextBatch` overlapping rows and double-publish before
     // `markPublished` deletes them, producing duplicate QoS1 deliveries. The
     // @Singleton scope ensures the same mutex is shared across all injectors.

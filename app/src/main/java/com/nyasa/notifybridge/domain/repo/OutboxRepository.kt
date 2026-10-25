@@ -8,7 +8,8 @@ interface OutboxRepository {
     suspend fun nextBatch(limit: Int): List<OutboxItem>
     suspend fun markPublished(id: Long)
 
-    /** Spec §3.2 head-of-line: the drain's failure path. Atomically bumps
+    /** Spec §3.2 head-of-line: the drain's Rejected path (Transient
+     *  failures never reach it — remediation K). Atomically bumps
      *  attemptCount and transitions the row to FAILED_TERMINAL once the cap
      *  is reached, so a poison row stops blocking the queue head. */
     suspend fun recordFailureOrFailTerminal(id: Long, maxAttempts: Int)
