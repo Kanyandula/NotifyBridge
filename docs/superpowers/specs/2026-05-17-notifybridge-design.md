@@ -235,7 +235,10 @@ It runs as `foregroundServiceType="connectedDevice"` (firm decision — see
 > default, `automaticReconnectWithDefaultConfig()`). It was previously
 > stated as `60s`. The jitter is applied after the cap, so one delay can
 > reach ~150s. "Drains on connect" now covers automatic reconnects too; see
-> §3.2 remediation K.
+> §3.2 remediation K. The retained `online` status and the discovery config
+> (§3.4) are likewise published from the connected listener on every
+> (re)connect, so HA availability recovers after an automatic reconnect
+> instead of staying on the LWT `offline`.
 
 ### 3.4 Home Assistant MQTT Discovery
 

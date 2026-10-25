@@ -54,7 +54,6 @@ class HiveMqClientManager @Inject constructor(
     override val connectionEpoch = epoch
     private var client: Mqtt5AsyncClient? = null
     private var activeConfig: BrokerConfig? = null
-    private var device: String = "phone"
 
     // Serialises connect/ensureConnected so concurrent callers (service,
     // worker, Test button) can't build two clients or tear down each other's.
@@ -70,9 +69,10 @@ class HiveMqClientManager @Inject constructor(
 
     private suspend fun connectLocked(config: BrokerConfig) {
         state.value = ConnectionState.CONNECTING
-        device = config.deviceName
+        val device = config.deviceName
         runCatching { client?.disconnect()?.await() }
         client = null
+        lateinit var c: Mqtt5AsyncClient // assigned below, before any connect can fire the listener
         val builder = MqttClient.builder().useMqttVersion5()
             .identifier(clientId(config))
             .serverHost(config.host)
@@ -80,6 +80,10 @@ class HiveMqClientManager @Inject constructor(
             .automaticReconnectWithDefaultConfig()
             .addDisconnectedListener { state.value = ConnectionState.DISCONNECTED }
             .addConnectedListener {
+                // Every (re)connect, automatic ones included: the broker may
+                // have sent our LWT `offline` or lost retained messages, so
+                // re-announce before waking DrainOnConnectUseCase.
+                announceOnline(c, device)
                 state.value = ConnectionState.CONNECTED
                 epoch.update { it + 1 }
             }
@@ -106,7 +110,7 @@ class HiveMqClientManager @Inject constructor(
                 builder.sslWithDefaultConfig()
             }
         }
-        val c = builder.buildAsync()
+        c = builder.buildAsync()
         client = c
         activeConfig = config
         try {
@@ -122,21 +126,27 @@ class HiveMqClientManager @Inject constructor(
                     .applySimpleAuth()
             }
             connect.send().await()
-            c.publishWith().topic(discovery.statusTopic(device))
-                .payload("online".toByteArray()).retain(true)
-                .qos(MqttQos.AT_LEAST_ONCE).send().await()
-            c.publishWith().topic(discovery.discoveryTopic(device))
-                .payload(discovery.discoveryConfig(device).toByteArray()).retain(true)
-                .qos(MqttQos.AT_LEAST_ONCE).send().await()
             state.value = ConnectionState.CONNECTED
         } catch (t: Throwable) {
-            // A post-connect publish (status/discovery retain) can throw even
-            // after the socket connected and addConnectedListener emitted
-            // CONNECTED. Only latch ERROR if the underlying client is actually
-            // down — otherwise we'd stamp ERROR over a live session and the UI
-            // would stay stuck even while publish() succeeds.
+            // Only latch ERROR if the underlying client is actually down —
+            // otherwise we'd stamp ERROR over a live session (the connected
+            // listener already emitted CONNECTED) and the UI would stay stuck
+            // even while publish() succeeds.
             Log.w("HiveMq", "connect() catch fired (clientConnected=${c.state.isConnected})", t)
             connectExceptionState(c.state.isConnected)?.let { state.value = it }
+        }
+    }
+
+    /** Retained `online` status + HA discovery config. Fire-and-forget: it
+     *  runs on HiveMQ's listener thread, which must not block. */
+    private fun announceOnline(c: Mqtt5AsyncClient, device: String) {
+        listOf(
+            discovery.statusTopic(device) to "online",
+            discovery.discoveryTopic(device) to discovery.discoveryConfig(device),
+        ).forEach { (topic, payload) ->
+            c.publishWith().topic(topic).payload(payload.toByteArray()).retain(true)
+                .qos(MqttQos.AT_LEAST_ONCE).send()
+                .whenComplete { _, t -> if (t != null) Log.w("HiveMq", "online/discovery announce failed", t) }
         }
     }
 
