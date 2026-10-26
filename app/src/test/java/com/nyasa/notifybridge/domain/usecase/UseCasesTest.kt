@@ -6,15 +6,19 @@ import com.nyasa.notifybridge.domain.model.CapturedNotification
 import com.nyasa.notifybridge.domain.model.OutboxItem
 import com.nyasa.notifybridge.domain.model.RecentItem
 import com.nyasa.notifybridge.domain.mqtt.PublishOutcome
+import com.nyasa.notifybridge.domain.mqtt.awaitConnected
 import com.nyasa.notifybridge.domain.repo.OutboxRepository
 import com.nyasa.notifybridge.domain.repo.RecentNotificationsRepository
 import com.nyasa.notifybridge.fakes.FakeMqttClientManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -165,5 +169,25 @@ class UseCasesTest {
     @Test fun test_connection_returns_true_on_connect() = runTest {
         val r = TestConnectionUseCase(FakeMqttClientManager())(BrokerConfig(host = "h"))
         assertTrue(r)
+    }
+
+    @Test fun test_connection_returns_false_on_connect_error() = runTest {
+        assertFalse(TestConnectionUseCase(FakeMqttClientManager(connectSucceeds = false))(BrokerConfig(host = "h")))
+    }
+
+    @Test fun await_connected_gives_up_after_the_timeout() = runTest {
+        // HiveMQ retries a wrong host or TLS setting forever; the wait must not.
+        assertFalse(FakeMqttClientManager().awaitConnected(timeoutMs = 10_000))
+        assertEquals(10_000L, currentTime)
+    }
+
+    @Test fun await_connected_returns_as_soon_as_connected() = runTest {
+        val mqtt = FakeMqttClientManager()
+        backgroundScope.launch {
+            delay(3_000)
+            mqtt.simulateReconnect()
+        }
+        assertTrue(mqtt.awaitConnected(timeoutMs = 10_000))
+        assertEquals(3_000L, currentTime)
     }
 }

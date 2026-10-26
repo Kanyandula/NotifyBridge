@@ -10,6 +10,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nyasa.notifybridge.domain.mqtt.MqttClientManager
+import com.nyasa.notifybridge.domain.mqtt.awaitConnected
 import com.nyasa.notifybridge.domain.repo.SettingsRepository
 import com.nyasa.notifybridge.domain.usecase.DrainOutboxUseCase
 import dagger.assisted.Assisted
@@ -31,6 +32,10 @@ class OutboxDrainWorker @AssistedInject constructor(
         // Never connect(): that would tear down a live client or reset one
         // that's mid-way through HiveMQ's reconnect backoff.
         mqtt.ensureConnected(cfg)
+        // Give the connection a moment so the drain below can publish (the
+        // service's drain-on-connect isn't running if the service is dead).
+        // On timeout the drain just stops Transient; next period retries.
+        mqtt.awaitConnected()
         drain()
         return Result.success()
     }

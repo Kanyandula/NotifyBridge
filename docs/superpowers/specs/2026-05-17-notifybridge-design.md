@@ -162,11 +162,25 @@ reflects "notification access lost" and publishing stops.
 > lost); and the 15-minute worker. Each drain loops over 50-row batches
 > until the queue is empty or a row isn't delivered, so a backlog larger
 > than one batch clears in one trigger. The worker calls `ensureConnected`,
-> which reuses a connected or reconnecting client for the same config
-> instead of rebuilding it. The worker is scheduled (`UPDATE` policy,
+> which reuses a connected, connecting or reconnecting client for the same
+> config instead of rebuilding it. The worker is scheduled (`UPDATE` policy,
 > `NetworkType.CONNECTED`) from both `BootReceiver` and
 > `MqttForegroundService.onCreate`, so a fresh install has the safety net
 > without a reboot.
+>
+> *Follow-up (on-device testing):* `connect`/`ensureConnected` never wait on
+> HiveMQ's connect future. With automatic reconnect it doesn't complete
+> while the broker is unreachable or misconfigured, and waiting on it under
+> the connection lock queued every later connect (including a corrected
+> config) behind it. Callers that need a result (Test connection, the
+> worker) wait at most 10s for `CONNECTED`. A replaced client stops its own
+> retry loop. `onStartCommand` also calls `ensureConnected`, so saving
+> broker settings applies them while the bridge is running. `publish`
+> returns `Transient` unless the client is connected: while reconnecting
+> HiveMQ *queues* a publish rather than failing it, and a client that
+> never (re)connects never completes it, which would hold the drain mutex
+> forever. The PUBACK wait is capped at 30s (`Transient` on timeout; a
+> later duplicate is within QoS 1's at-least-once contract).
 >
 > **Correction (post-impl, remediation J):** `attemptCount` is recorded
 > per-row but **does not drive a per-row backoff**; it's incremented on

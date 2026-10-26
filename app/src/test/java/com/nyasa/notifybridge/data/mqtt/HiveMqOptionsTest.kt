@@ -25,16 +25,12 @@ class HiveMqOptionsTest {
             HiveMqClientManager.clientId(BrokerConfig(deviceName = "Pixel 7")))
     }
 
-    @Test fun reuses_only_a_live_or_reconnecting_client_for_the_same_config() {
+    @Test fun reuses_any_client_that_is_not_dead_for_the_same_config() {
         val cfg = BrokerConfig(host = "a")
         val other = BrokerConfig(host = "b")
-        val reusable = setOf(
-            MqttClientState.CONNECTED,
-            MqttClientState.DISCONNECTED_RECONNECT,
-            MqttClientState.CONNECTING_RECONNECT,
-        )
         MqttClientState.values().forEach { s ->
-            assertEquals(s.name, s in reusable, HiveMqClientManager.shouldReuse(s, cfg, cfg))
+            val alive = s != MqttClientState.DISCONNECTED // CONNECTING included: connect() doesn't wait
+            assertEquals(s.name, alive, HiveMqClientManager.shouldReuse(s, cfg, cfg))
             assertFalse(s.name, HiveMqClientManager.shouldReuse(s, cfg, other))
         }
         assertFalse(HiveMqClientManager.shouldReuse(null, null, cfg))
